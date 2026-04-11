@@ -18,8 +18,8 @@ This project is a local desktop app, so deployment means preparing a machine to 
 6. Run `npm run package:linux` to generate distributables in `release/`.
 7. Install with either:
    - `npm run install:desktop` for the local source checkout flow
-   - `sudo dpkg -i "release/Mermaid Tool-0.1.7-amd64.deb"` for a system package
-   - `chmod +x "release/Mermaid Tool-0.1.7-x86_64.AppImage"` and launch the AppImage directly
+   - `sudo dpkg -i "release/Mermaid Tool-0.2.1-amd64.deb"` for a system package
+   - `chmod +x "release/Mermaid Tool-0.2.1-x86_64.AppImage"` and launch the AppImage directly
 8. Launch `Mermaid Tool` from the applications menu, the installed package, the AppImage, or `bin/launch-mermaid-tool.sh`.
 
 ## Rollback
@@ -34,9 +34,12 @@ This project is a local desktop app, so deployment means preparing a machine to 
 ## Validation
 
 - confirm the app launches without renderer errors
-- open a sample `.mmd` file
+- open one or more sample `.mmd` files
 - change the text and verify the preview refreshes
 - save the file and confirm disk changes
+- confirm `Open` starts in the expected local draft/save folder
+- open several files and confirm they appear as tabs instead of replacing one another
+- create a second window and confirm it stays independent from the first
 - wipe the editor and confirm a blank document can be saved cleanly
 - delete a saved test file and confirm the app returns to an untitled document
 - open the preview in fullscreen and confirm `Escape` returns to the normal layout
@@ -46,5 +49,5 @@ This project is a local desktop app, so deployment means preparing a machine to 
 - export both SVG and PNG successfully
 - confirm the desktop launcher opens the app from the menu
 - confirm `.mmd` and `.mermaid` open in Mermaid Tool after installation
-- confirm a dirty document recovers after relaunch
+- confirm dirty tabs recover after relaunch
 - confirm the AppImage launches and the `.deb` installs cleanly

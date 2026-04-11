@@ -30,6 +30,7 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 - The app warns before replacing unsaved work in-editor and before closing the window with unsaved edits.
 - In-progress edits autosave per tab to the Electron user-data folder and are recovered automatically on the next normal launch.
 - `Save As` now opens in the same draft folder for unsaved diagrams, while existing saved files still default to their current folder.
+- `Open` now starts in that same draft/save folder by default so new saves and later reopen flows line up.
 - `Open` can import several files in one pass and adds them as tabs instead of replacing the active document.
 - `Wipe` clears the current editor contents without deleting the file on disk until you save.
 - `Delete File` permanently removes the current saved file from disk and then opens a fresh untitled document.

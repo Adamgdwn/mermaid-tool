@@ -12,7 +12,7 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 - Preview fails: inspect the Mermaid syntax in the editor and confirm the preview pane shows a valid render.
 - Export fails: confirm the preview is healthy first, then retry SVG or PNG export.
 - File open or save fails: confirm the target path is writable and the file still exists.
-- Autosave recovery looks wrong: inspect the session draft at `~/.config/Mermaid Tool/drafts/session-draft.json` on Linux and remove it if you intentionally want a clean launch.
+- Autosave recovery looks wrong: inspect the per-tab draft files in `~/.config/Mermaid Tool/drafts/` on Linux and remove the stale `.json` entries you do not want restored.
 - Packaged install problems: inspect `release/` artifacts, confirm `dpkg -i` completed, and re-run package generation.
 
 ## Dependencies
@@ -32,7 +32,7 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 4. Run `npm run package:linux` if the issue is specific to AppImage or Debian delivery.
 5. Remove `dist/` and `release/` and rebuild if launch or package assets look stale.
 6. Reinstall the launcher with `npm run install:desktop`.
-7. Remove the session draft file if the app keeps restoring an intentionally abandoned draft.
+7. Remove abandoned draft `.json` files from `~/.config/Mermaid Tool/drafts/` if the app keeps restoring work you no longer want.
 
 ## Escalation
 

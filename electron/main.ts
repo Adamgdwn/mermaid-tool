@@ -412,6 +412,7 @@ ipcMain.handle("file:open", async (event) => {
   const browserWindow = getWindowFromWebContents(event.sender);
 
   const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
+    defaultPath: getDraftDirectoryPath(),
     filters: TEXT_FILE_FILTERS,
     properties: ["multiSelections", "openFile"]
   });

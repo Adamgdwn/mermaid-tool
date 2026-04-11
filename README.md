@@ -19,6 +19,7 @@ It is built for amateur-friendly local use:
 - autosave in-progress drafts locally and recover them on restart
 - autosave each open tab as its own local recovery draft
 - open `Save As` for unsaved work directly in the same local draft folder used by autosave recovery
+- default `Open` to that same local draft/save folder for a smoother round-trip workflow
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
 - install a Linux desktop launcher for one-click startup
@@ -43,8 +44,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.2.0-x86_64.AppImage`
-  - `release/Mermaid Tool-0.2.0-amd64.deb`
+  - `release/Mermaid Tool-0.2.1-x86_64.AppImage`
+  - `release/Mermaid Tool-0.2.1-amd64.deb`
 
 ## File Associations
 

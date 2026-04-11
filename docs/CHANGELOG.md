@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.2.1 - 2026-04-11
+
+- made the `Open` dialog start in the same draft/save folder used by unsaved `Save As`
+
 ## 0.2.0 - 2026-04-11
 
 - added tabbed editing so multiple Mermaid files can stay open concurrently inside the same window
