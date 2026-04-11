@@ -1,6 +1,12 @@
 import Editor from "@monaco-editor/react";
 import mermaid from "mermaid";
-import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useEffectEvent,
+  useState
+} from "react";
 import type {
   AppCommand,
   DocumentPayload,
@@ -52,6 +58,7 @@ function App() {
   const [renderError, setRenderError] = useState("");
   const [isRendering, setIsRendering] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   const deferredSource = useDeferredValue(source);
   const lineCount = countLines(source);
@@ -129,6 +136,39 @@ function App() {
       window.removeEventListener("beforeunload", beforeUnload);
     };
   }, [dirty]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsPreviewFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isPreviewFullscreen) {
+      return;
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      void closePreviewFullscreen();
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [isPreviewFullscreen]);
 
   useEffect(() => {
     if (!dirty) {
@@ -294,6 +334,40 @@ function App() {
       setStatusMessage(`Export failed: ${formatErrorMessage(error)}`);
     } finally {
       setIsExporting(false);
+    }
+  }
+
+  async function closePreviewFullscreen(): Promise<void> {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+
+    setIsPreviewFullscreen(false);
+    setStatusMessage("Returned to the standard editing view.");
+  }
+
+  async function handlePreviewFullscreenToggle(): Promise<void> {
+    if (!svgMarkup || renderError) {
+      setStatusMessage("Let the preview render cleanly before opening full screen.");
+      return;
+    }
+
+    if (isPreviewFullscreen) {
+      await closePreviewFullscreen();
+      return;
+    }
+
+    setIsPreviewFullscreen(true);
+    setStatusMessage("Preview opened in full screen. Press Escape to return.");
+
+    if (document.fullscreenElement || !document.documentElement.requestFullscreen) {
+      return;
+    }
+
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      setStatusMessage("Preview expanded inside the app. Press Escape to return.");
     }
   }
 
@@ -469,6 +543,21 @@ function App() {
     };
   }, []);
 
+  const previewBody = renderError ? (
+    <div className="preview-empty">
+      <h3>Preview paused</h3>
+      <p>{renderError}</p>
+    </div>
+  ) : (
+    <div className={`preview-canvas ${isPreviewFullscreen ? "preview-canvas-focus" : ""}`}>
+      <div
+        className={`preview-stage ${isPreviewFullscreen ? "preview-stage-focus" : ""}`}
+        style={{ transform: `scale(${zoom})` }}
+        dangerouslySetInnerHTML={{ __html: svgMarkup }}
+      />
+    </div>
+  );
+
   return (
     <div className="shell">
       <div className="aurora aurora-left" />
@@ -633,27 +722,21 @@ function App() {
               <p className="eyebrow">Preview</p>
               <h2>{diagramType} Diagram</h2>
             </div>
-            <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
-              {renderError ? "Needs attention" : isRendering ? "Rendering" : "Live"}
+            <div className="preview-header-actions">
+              <button
+                className="button button-quiet"
+                disabled={!svgMarkup || !!renderError}
+                onClick={() => void handlePreviewFullscreenToggle()}
+              >
+                Full Screen
+              </button>
+              <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
+                {renderError ? "Needs attention" : isRendering ? "Rendering" : "Live"}
+              </div>
             </div>
           </div>
 
-          <div className="preview-shell">
-            {renderError ? (
-              <div className="preview-empty">
-                <h3>Preview paused</h3>
-                <p>{renderError}</p>
-              </div>
-            ) : (
-              <div className="preview-canvas">
-                <div
-                  className="preview-stage"
-                  style={{ transform: `scale(${zoom})` }}
-                  dangerouslySetInnerHTML={{ __html: svgMarkup }}
-                />
-              </div>
-            )}
-          </div>
+          <div className="preview-shell">{previewBody}</div>
         </section>
       </main>
 
@@ -671,6 +754,27 @@ function App() {
         </span>
         <span>v{appVersion}</span>
       </footer>
+
+      {isPreviewFullscreen ? (
+        <div className="preview-focus-layer">
+          <div className="preview-focus-toolbar">
+            <div>
+              <p className="eyebrow">Presentation View</p>
+              <h2>{documentName}</h2>
+            </div>
+            <div className="preview-focus-actions">
+              <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
+                {renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}
+              </div>
+              <button className="button button-quiet" onClick={() => void closePreviewFullscreen()}>
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="preview-focus-shell">{previewBody}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

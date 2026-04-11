@@ -30,6 +30,7 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 - In-progress edits autosave to the Electron user-data folder and are recovered automatically on the next normal launch.
 - `Wipe` clears the current editor contents without deleting the file on disk until you save.
 - `Delete File` permanently removes the current saved file from disk and then opens a fresh untitled document.
+- `Full Screen` on the preview panel opens a presentation-style view and supports `Escape` to return.
 - Built-in templates are meant as onboarding shortcuts, not authoritative Mermaid examples for every syntax feature.
 - Export works best after the preview is green and rendering successfully.
 - `npm run install:desktop` registers `.mmd` and `.mermaid` locally through the desktop database and MIME database.

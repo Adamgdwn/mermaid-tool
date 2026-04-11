@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.3 - 2026-04-11
+
+- added a fullscreen presentation mode for the live preview canvas
+- added an in-app close path and `Escape` handling to return from fullscreen preview cleanly
+
 ## 0.1.2 - 2026-04-11
 
 - added automatic local draft save and recovery for in-progress diagrams
