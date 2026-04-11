@@ -33,6 +33,16 @@ const INITIAL_TEMPLATE = TEMPLATE_LIBRARY[0];
 const BLANK_DOCUMENT_SOURCE = "";
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 5;
+const FLOWCHART_LAYOUT = {
+  defaultRenderer: "elk" as const,
+  diagramPadding: 8,
+  htmlLabels: true,
+  nodeSpacing: 24,
+  padding: 12,
+  rankSpacing: 32,
+  useMaxWidth: false,
+  wrappingWidth: 200
+};
 type PreviewPanSession = {
   element: HTMLDivElement;
   originClientX: number;
@@ -146,10 +156,7 @@ function App() {
             theme,
             securityLevel: "strict",
             fontFamily: "IBM Plex Sans, Segoe UI Variable, Segoe UI, sans-serif",
-            flowchart: {
-              htmlLabels: true,
-              useMaxWidth: false
-            },
+            flowchart: FLOWCHART_LAYOUT,
             sequence: {
               useMaxWidth: false
             }
@@ -232,6 +239,24 @@ function App() {
     window.addEventListener("keydown", handleKeydown);
     return () => {
       window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [isPreviewFullscreen]);
+
+  useEffect(() => {
+    const fullscreenClassName = "preview-fullscreen-active";
+    const { body, documentElement } = document;
+
+    if (isPreviewFullscreen) {
+      body.classList.add(fullscreenClassName);
+      documentElement.classList.add(fullscreenClassName);
+    } else {
+      body.classList.remove(fullscreenClassName);
+      documentElement.classList.remove(fullscreenClassName);
+    }
+
+    return () => {
+      body.classList.remove(fullscreenClassName);
+      documentElement.classList.remove(fullscreenClassName);
     };
   }, [isPreviewFullscreen]);
 

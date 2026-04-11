@@ -13,6 +13,7 @@ It is built for amateur-friendly local use:
 - right-drag the preview canvas to grab and pan large diagrams
 - zoom the preview by scrolling directly over the canvas
 - fit oversized diagrams by width or whole-diagram view in preview and fullscreen
+- use a tighter default flowchart layout so complex diagrams stay more compact and readable
 - autosave in-progress drafts locally and recover them on restart
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
@@ -38,8 +39,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.1.7-x86_64.AppImage`
-  - `release/Mermaid Tool-0.1.7-amd64.deb`
+  - `release/Mermaid Tool-0.1.8-x86_64.AppImage`
+  - `release/Mermaid Tool-0.1.8-amd64.deb`
 
 ## File Associations
 

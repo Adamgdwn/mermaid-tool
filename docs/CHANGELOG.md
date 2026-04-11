@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.1.8 - 2026-04-11
+
+- tightened the default Mermaid flowchart layout so large diagrams use space more logically and wrap labels sooner
+- fixed fullscreen preview scrolling so grab-and-pan works vertically as well as horizontally
+- changed fullscreen preview styling to keep the canvas on a single paper-like surface instead of reading like separate screens
+
 ## 0.1.7 - 2026-04-11
 
 - changed fullscreen entry to open in fit-width mode so large diagrams feel readable instead of poster-sized

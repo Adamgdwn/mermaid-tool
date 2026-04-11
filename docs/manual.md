@@ -32,8 +32,10 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 - `Delete File` permanently removes the current saved file from disk and then opens a fresh untitled document.
 - `Full Screen` on the preview panel opens a presentation-style view and supports `Escape` to return.
 - Right-click and drag on the preview to grab the canvas and pan around larger diagrams.
+- Fullscreen preview now locks page scrolling so the canvas owns both horizontal and vertical grab-and-pan movement.
 - Scroll directly over the preview canvas to zoom in or out around the cursor position.
 - `Fit Width` is the best default reading mode for large diagrams, while `Whole` shows the entire graph bounds on one screen.
+- Flowcharts now default to a tighter ELK-based layout so complex diagrams waste less space in preview and fullscreen.
 - Built-in templates are meant as onboarding shortcuts, not authoritative Mermaid examples for every syntax feature.
 - Export works best after the preview is green and rendering successfully.
 - `npm run install:desktop` registers `.mmd` and `.mermaid` locally through the desktop database and MIME database.
