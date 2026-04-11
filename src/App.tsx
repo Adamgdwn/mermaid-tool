@@ -155,6 +155,33 @@ function App() {
     };
   }, [dirty]);
 
+  async function confirmDiscard(actionDescription: string): Promise<boolean> {
+    if (!dirty) {
+      return true;
+    }
+
+    return window.confirm(`You have unsaved changes. Continue and ${actionDescription}?`);
+  }
+
+  async function loadDocument(document: DocumentPayload, silent: boolean): Promise<void> {
+    const shouldContinue = silent
+      ? true
+      : await confirmDiscard(`open ${document.name}`);
+
+    if (!shouldContinue) {
+      return;
+    }
+
+    startTransition(() => {
+      setSource(document.content);
+      setDocumentPath(document.path);
+      setDocumentName(document.name);
+      setDirty(false);
+      setLastSavedAt(undefined);
+      setStatusMessage(`Opened ${document.name}.`);
+    });
+  }
+
   async function handleOpenDocument(): Promise<void> {
     const shouldContinue = await confirmDiscard("open another document");
     if (!shouldContinue) {
