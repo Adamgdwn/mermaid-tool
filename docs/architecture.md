@@ -2,11 +2,11 @@
 
 ## Summary
 
-Mermaid Tool is a local-first Electron desktop application. The main process handles file dialogs, save and export writes, desktop-style window lifecycle, and launch-time file opening. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
+Mermaid Tool is a local-first Electron desktop application. The main process handles file dialogs, save and export writes, draft persistence, desktop-style window lifecycle, and launch-time file opening. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
 
 ## Components
 
-- `electron/main.ts`: creates the desktop window, exposes file open/save/export handlers, and routes launch-time file opening.
+- `electron/main.ts`: creates the desktop window, exposes file open/save/delete/export handlers, routes launch-time file opening, and stores the session draft in Electron user data.
 - `electron/preload.ts`: safely bridges IPC methods into the renderer through `window.mermaidTool`.
 - `src/App.tsx`: application shell, editing workflow, preview, template loading, zoom, and export actions.
 - `src/lib/document.ts`: document naming, diagram detection, and export filename helpers.
@@ -20,8 +20,9 @@ Mermaid Tool is a local-first Electron desktop application. The main process han
 1. The user opens or creates a Mermaid document.
 2. The renderer updates local React state with the working text.
 3. Mermaid renders the current source into SVG entirely on the client.
-4. Export actions generate SVG text or render PNG bytes locally.
-5. The Electron main process writes files chosen by the user to local disk.
+4. When the current document is dirty, the renderer debounces a session-draft autosave request to the main process.
+5. Export actions generate SVG text or render PNG bytes locally.
+6. The Electron main process writes files chosen by the user to local disk and can restore the last draft on restart.
 
 The app is local-only by default. It does not require a backend, does not move money, and does not intentionally handle sensitive data.
 

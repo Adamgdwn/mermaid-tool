@@ -1,6 +1,18 @@
 # Change Log
 
-## Unreleased
+## 0.1.2 - 2026-04-11
+
+- added automatic local draft save and recovery for in-progress diagrams
+- added desktop-style File menu commands for new, open, save, save as, wipe, delete, and export actions
+- added explicit `Wipe` and `Delete File` controls to the main toolbar
+- hardened the renderer and Electron contract around file deletion and draft persistence
+
+## 0.1.1 - 2026-04-11
+
+- fixed the `New` action so it opens a truly blank untitled document
+- rebuilt the Linux packages so the installed app can pick up the corrected editor actions
+
+## 0.1.0 - 2026-04-11
 
 - built the first functional Electron desktop application for local Mermaid editing
 - added Monaco-based editing, live Mermaid preview, theme switching, zoom, and starter templates

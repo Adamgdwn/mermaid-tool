@@ -1,7 +1,12 @@
 import Editor from "@monaco-editor/react";
 import mermaid from "mermaid";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
-import type { DocumentPayload, MermaidThemeName } from "../shared/contracts";
+import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
+import type {
+  AppCommand,
+  DocumentPayload,
+  DraftPayload,
+  MermaidThemeName
+} from "../shared/contracts";
 import {
   DEFAULT_DOCUMENT_NAME,
   buildExportFileName,
@@ -25,6 +30,13 @@ function formatErrorMessage(error: unknown): string {
   return "Mermaid couldn't render the current text yet.";
 }
 
+function formatClockTime(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 function App() {
   const [appVersion, setAppVersion] = useState("0.0.0");
   const [documentPath, setDocumentPath] = useState<string>();
@@ -35,6 +47,7 @@ function App() {
   const [zoom, setZoom] = useState(1);
   const [statusMessage, setStatusMessage] = useState("Ready to diagram locally.");
   const [lastSavedAt, setLastSavedAt] = useState<string>();
+  const [draftSavedAt, setDraftSavedAt] = useState<string>();
   const [svgMarkup, setSvgMarkup] = useState("");
   const [renderError, setRenderError] = useState("");
   const [isRendering, setIsRendering] = useState(true);
@@ -43,45 +56,6 @@ function App() {
   const deferredSource = useDeferredValue(source);
   const lineCount = countLines(source);
   const diagramType = detectDiagramType(source);
-
-  useEffect(() => {
-    void window.mermaidTool.getAppVersion().then((version) => {
-      setAppVersion(version);
-    });
-  }, []);
-
-  useEffect(() => {
-    async function applyIncomingDocument(document: DocumentPayload, silent: boolean): Promise<void> {
-      const shouldContinue = silent || !dirty
-        ? true
-        : window.confirm(`You have unsaved changes. Continue and open ${document.name}?`);
-
-      if (!shouldContinue) {
-        return;
-      }
-
-      startTransition(() => {
-        setSource(document.content);
-        setDocumentPath(document.path);
-        setDocumentName(document.name);
-        setDirty(false);
-        setLastSavedAt(undefined);
-        setStatusMessage(`Opened ${document.name}.`);
-      });
-    }
-
-    const unsubscribe = window.mermaidTool.onOpenDocument((incomingDocument) => {
-      void applyIncomingDocument(incomingDocument, false);
-    });
-
-    void window.mermaidTool.getLaunchDocument().then((incomingDocument) => {
-      if (incomingDocument) {
-        void applyIncomingDocument(incomingDocument, true);
-      }
-    });
-
-    return unsubscribe;
-  }, [dirty]);
 
   useEffect(() => {
     if (!deferredSource.trim()) {
@@ -156,6 +130,42 @@ function App() {
     };
   }, [dirty]);
 
+  useEffect(() => {
+    if (!dirty) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const updatedAt = new Date().toISOString();
+
+      void window.mermaidTool.saveDraft({
+        content: source,
+        documentName: ensureMermaidExtension(documentName),
+        documentPath,
+        theme,
+        updatedAt
+      }).then(() => {
+        setDraftSavedAt(formatClockTime(updatedAt));
+      }).catch((error: unknown) => {
+        setStatusMessage(`Autosave failed: ${formatErrorMessage(error)}`);
+      });
+    }, 900);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [dirty, documentName, documentPath, source, theme]);
+
+  async function clearDraftState(): Promise<void> {
+    try {
+      await window.mermaidTool.clearDraft();
+    } catch {
+      // Saving the real file should still succeed even if draft cleanup misses once.
+    } finally {
+      setDraftSavedAt(undefined);
+    }
+  }
+
   async function confirmDiscard(actionDescription: string): Promise<boolean> {
     if (!dirty) {
       return true;
@@ -164,13 +174,33 @@ function App() {
     return window.confirm(`You have unsaved changes. Continue and ${actionDescription}?`);
   }
 
-  async function loadDocument(document: DocumentPayload, silent: boolean): Promise<void> {
-    const shouldContinue = silent
+  function restoreRecoveredDraft(draft: DraftPayload): void {
+    startTransition(() => {
+      setSource(draft.content);
+      setDocumentPath(draft.documentPath);
+      setDocumentName(ensureMermaidExtension(draft.documentName));
+      setTheme(draft.theme);
+      setDirty(true);
+      setLastSavedAt(undefined);
+      setDraftSavedAt(formatClockTime(draft.updatedAt));
+      setStatusMessage(`Recovered your last autosaved draft for ${draft.documentName}.`);
+    });
+  }
+
+  async function loadDocument(
+    document: DocumentPayload,
+    options: { preserveDraft?: boolean; silent?: boolean } = {}
+  ): Promise<void> {
+    const shouldContinue = options.silent
       ? true
       : await confirmDiscard(`open ${document.name}`);
 
     if (!shouldContinue) {
       return;
+    }
+
+    if (!options.preserveDraft) {
+      await clearDraftState();
     }
 
     startTransition(() => {
@@ -183,6 +213,15 @@ function App() {
     });
   }
 
+  const handleIncomingDocument = useEffectEvent(
+    async (
+      incomingDocument: DocumentPayload,
+      options: { preserveDraft?: boolean; silent?: boolean } = {}
+    ) => {
+      await loadDocument(incomingDocument, options);
+    }
+  );
+
   async function handleOpenDocument(): Promise<void> {
     const shouldContinue = await confirmDiscard("open another document");
     if (!shouldContinue) {
@@ -194,7 +233,7 @@ function App() {
       return;
     }
 
-    await loadDocument(openedDocument, true);
+    await loadDocument(openedDocument, { preserveDraft: false, silent: true });
   }
 
   async function handleSaveDocument(forceDialog: boolean): Promise<void> {
@@ -214,12 +253,12 @@ function App() {
       return;
     }
 
+    await clearDraftState();
+
     setDocumentPath(saveResult.path);
     setDocumentName(getFileNameFromPath(saveResult.path));
     setDirty(false);
-    setLastSavedAt(
-      new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    );
+    setLastSavedAt(formatClockTime(new Date().toISOString()));
     setStatusMessage(`Saved ${getFileNameFromPath(saveResult.path)}.`);
   }
 
@@ -264,6 +303,8 @@ function App() {
       return;
     }
 
+    await clearDraftState();
+
     startTransition(() => {
       setSource(BLANK_DOCUMENT_SOURCE);
       setDocumentPath(undefined);
@@ -274,11 +315,73 @@ function App() {
     });
   }
 
+  async function handleWipeDocument(): Promise<void> {
+    if (!source) {
+      setStatusMessage("The editor is already blank.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      documentPath
+        ? "Wipe the current editor contents? The file stays on disk until you save the blank version."
+        : "Wipe the current editor contents?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    startTransition(() => {
+      setSource(BLANK_DOCUMENT_SOURCE);
+      setDirty(true);
+      setDraftSavedAt(undefined);
+      setStatusMessage(
+        documentPath
+          ? "Cleared the editor. Save to overwrite the file, or Save As to keep the original."
+          : "Cleared the editor. Save when you're ready."
+      );
+    });
+  }
+
+  async function handleDeleteDocument(): Promise<void> {
+    if (!documentPath) {
+      setStatusMessage("There is no saved file to delete yet.");
+      return;
+    }
+
+    const documentLabel = getFileNameFromPath(documentPath);
+    const confirmed = window.confirm(
+      `Delete ${documentLabel} from disk? This permanently removes the file.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await window.mermaidTool.deleteDocument(documentPath);
+      await clearDraftState();
+
+      startTransition(() => {
+        setSource(BLANK_DOCUMENT_SOURCE);
+        setDocumentPath(undefined);
+        setDocumentName(DEFAULT_DOCUMENT_NAME);
+        setDirty(false);
+        setLastSavedAt(undefined);
+        setStatusMessage(`Deleted ${documentLabel} and opened a fresh untitled document.`);
+      });
+    } catch (error) {
+      setStatusMessage(`Delete failed: ${formatErrorMessage(error)}`);
+    }
+  }
+
   async function handleTemplateSwap(templateSource: string, label: string): Promise<void> {
     const shouldContinue = await confirmDiscard(`replace the editor with ${label}`);
     if (!shouldContinue) {
       return;
     }
+
+    await clearDraftState();
 
     startTransition(() => {
       setSource(templateSource);
@@ -289,6 +392,82 @@ function App() {
       setStatusMessage(`Loaded the ${label} template into the editor.`);
     });
   }
+
+  const handleAppCommand = useEffectEvent(async (command: AppCommand) => {
+    switch (command) {
+      case "new":
+        await handleNewDocument();
+        return;
+      case "open":
+        await handleOpenDocument();
+        return;
+      case "save":
+        await handleSaveDocument(false);
+        return;
+      case "saveAs":
+        await handleSaveDocument(true);
+        return;
+      case "wipe":
+        await handleWipeDocument();
+        return;
+      case "deleteFile":
+        await handleDeleteDocument();
+        return;
+      case "exportSvg":
+        await handleExport("svg");
+        return;
+      case "exportPng":
+        await handleExport("png");
+        return;
+    }
+  });
+
+  useEffect(() => {
+    let disposed = false;
+
+    const unsubscribeOpen = window.mermaidTool.onOpenDocument((incomingDocument) => {
+      void handleIncomingDocument(incomingDocument, { preserveDraft: false, silent: false });
+    });
+
+    const unsubscribeCommand = window.mermaidTool.onCommand((command) => {
+      void handleAppCommand(command);
+    });
+
+    void (async () => {
+      try {
+        const [version, incomingDocument, recoveredDraft] = await Promise.all([
+          window.mermaidTool.getAppVersion(),
+          window.mermaidTool.getLaunchDocument(),
+          window.mermaidTool.getRecoveredDraft()
+        ]);
+
+        if (disposed) {
+          return;
+        }
+
+        setAppVersion(version);
+
+        if (incomingDocument) {
+          await handleIncomingDocument(incomingDocument, { preserveDraft: true, silent: true });
+          return;
+        }
+
+        if (recoveredDraft) {
+          restoreRecoveredDraft(recoveredDraft);
+        }
+      } catch (error) {
+        if (!disposed) {
+          setStatusMessage(`Startup recovery failed: ${formatErrorMessage(error)}`);
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      unsubscribeOpen();
+      unsubscribeCommand();
+    };
+  }, []);
 
   return (
     <div className="shell">
@@ -316,6 +495,20 @@ function App() {
           </button>
           <button className="button button-quiet" onClick={() => void handleSaveDocument(true)}>
             Save As
+          </button>
+          <button
+            className="button button-quiet"
+            disabled={!source}
+            onClick={() => void handleWipeDocument()}
+          >
+            Wipe
+          </button>
+          <button
+            className="button button-danger"
+            disabled={!documentPath}
+            onClick={() => void handleDeleteDocument()}
+          >
+            Delete File
           </button>
           <button
             className="button button-quiet"
@@ -392,6 +585,7 @@ function App() {
               <li>Open or start a `.mmd` file locally.</li>
               <li>Edit the Mermaid text in plain language on the center panel.</li>
               <li>Watch the right panel update automatically.</li>
+              <li>Your in-progress draft autosaves locally while you work.</li>
               <li>Export SVG for crisp docs or PNG for slides and chat.</li>
             </ul>
           </section>
@@ -403,7 +597,9 @@ function App() {
               <p className="eyebrow">Editor</p>
               <h2>{documentName}</h2>
             </div>
-            <div className="panel-badge">{dirty ? "Unsaved changes" : "Saved state"}</div>
+            <div className="panel-badge">
+              {dirty ? (draftSavedAt ? "Draft protected" : "Unsaved changes") : "Saved state"}
+            </div>
           </div>
 
           <div className="editor-shell">
@@ -465,7 +661,14 @@ function App() {
         <span>{statusMessage}</span>
         <span>{documentPath ?? "Unsaved local draft"}</span>
         <span>{lineCount} lines</span>
-        <span>{lastSavedAt ? `Saved at ${lastSavedAt}` : "Not saved yet"}</span>
+        <span>{lastSavedAt ? `Saved at ${lastSavedAt}` : dirty ? "Not saved yet" : "Saved state"}</span>
+        <span>
+          {draftSavedAt
+            ? `Draft autosaved at ${draftSavedAt}`
+            : dirty
+              ? "Draft autosave pending"
+              : "No recovery draft queued"}
+        </span>
         <span>v{appVersion}</span>
       </footer>
     </div>

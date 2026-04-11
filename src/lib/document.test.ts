@@ -4,7 +4,8 @@ import {
   buildExportFileName,
   countLines,
   detectDiagramType,
-  ensureMermaidExtension
+  ensureMermaidExtension,
+  getFileNameFromPath
 } from "./document";
 
 describe("document utilities", () => {
@@ -19,6 +20,11 @@ describe("document utilities", () => {
   it("builds export names from the current document", () => {
     expect(buildExportFileName("/tmp/ops-diagram.mmd", "svg")).toBe("ops-diagram.svg");
     expect(buildExportFileName(undefined, "png")).toBe(DEFAULT_DOCUMENT_NAME.replace(".mmd", ".png"));
+  });
+
+  it("extracts file names from local paths", () => {
+    expect(getFileNameFromPath("/tmp/ops-diagram.mmd")).toBe("ops-diagram.mmd");
+    expect(getFileNameFromPath("C:\\Users\\adam\\ops-diagram.mmd")).toBe("ops-diagram.mmd");
   });
 
   it("counts lines and recognizes the diagram family", () => {

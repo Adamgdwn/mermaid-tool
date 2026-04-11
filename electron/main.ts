@@ -3,6 +3,8 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type {
+  AppCommand,
+  DraftPayload,
   DocumentPayload,
   SaveAssetRequest,
   SaveDocumentRequest,
@@ -16,6 +18,7 @@ const TEXT_FILE_FILTERS = [
     extensions: ["mmd", "mermaid", "md", "txt"]
   }
 ];
+const SESSION_DRAFT_FILE = "session-draft.json";
 
 let mainWindow: BrowserWindow | null = null;
 let initialLaunchDocument: DocumentPayload | null = null;
@@ -64,11 +67,67 @@ async function readDocument(filePath: string): Promise<DocumentPayload> {
   };
 }
 
+function sendAppCommand(command: AppCommand): void {
+  mainWindow?.webContents.send("app:command", command);
+}
+
+function getDraftFilePath(): string {
+  return path.join(app.getPath("userData"), "drafts", SESSION_DRAFT_FILE);
+}
+
+async function readDraft(): Promise<DraftPayload | null> {
+  const draftPath = getDraftFilePath();
+
+  try {
+    const rawDraft = await fsp.readFile(draftPath, "utf8");
+    return JSON.parse(rawDraft) as DraftPayload;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function writeDraft(draft: DraftPayload): Promise<void> {
+  const draftPath = getDraftFilePath();
+  await fsp.mkdir(path.dirname(draftPath), { recursive: true });
+  await fsp.writeFile(draftPath, JSON.stringify(draft, null, 2), "utf8");
+}
+
+async function clearDraft(): Promise<void> {
+  try {
+    await fsp.unlink(getDraftFilePath());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
 function buildMenu(): void {
   const menu = Menu.buildFromTemplate([
     {
       label: "File",
-      submenu: [{ role: "quit", label: "Quit Mermaid Tool" }]
+      submenu: [
+        { accelerator: "CmdOrCtrl+N", click: () => sendAppCommand("new"), label: "New" },
+        { accelerator: "CmdOrCtrl+O", click: () => sendAppCommand("open"), label: "Open..." },
+        { accelerator: "CmdOrCtrl+S", click: () => sendAppCommand("save"), label: "Save" },
+        {
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: () => sendAppCommand("saveAs"),
+          label: "Save As..."
+        },
+        { type: "separator" },
+        { click: () => sendAppCommand("wipe"), label: "Wipe Editor" },
+        { click: () => sendAppCommand("deleteFile"), label: "Delete File" },
+        { type: "separator" },
+        { click: () => sendAppCommand("exportSvg"), label: "Export SVG..." },
+        { click: () => sendAppCommand("exportPng"), label: "Export PNG..." },
+        { type: "separator" },
+        { role: "quit", label: "Quit Mermaid Tool" }
+      ]
     },
     {
       label: "Edit",
@@ -179,6 +238,10 @@ async function persistAsset(request: SaveAssetRequest): Promise<SaveResult> {
   };
 }
 
+async function deleteTextDocument(filePath: string): Promise<void> {
+  await fsp.unlink(filePath);
+}
+
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1600,
@@ -279,6 +342,10 @@ ipcMain.handle("file:open", async () => {
   return readDocument(filePaths[0]);
 });
 
+ipcMain.handle("file:delete", async (_event, filePath: string) => {
+  await deleteTextDocument(filePath);
+});
+
 ipcMain.handle("file:save", async (_event, request: SaveDocumentRequest) => {
   return persistTextDocument(request, false);
 });
@@ -289,4 +356,16 @@ ipcMain.handle("file:saveAs", async (_event, request: SaveDocumentRequest) => {
 
 ipcMain.handle("file:exportAsset", async (_event, request: SaveAssetRequest) => {
   return persistAsset(request);
+});
+
+ipcMain.handle("draft:getRecovered", async () => {
+  return readDraft();
+});
+
+ipcMain.handle("draft:save", async (_event, draft: DraftPayload) => {
+  await writeDraft(draft);
+});
+
+ipcMain.handle("draft:clear", async () => {
+  await clearDraft();
 });

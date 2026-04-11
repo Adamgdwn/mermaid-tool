@@ -146,6 +146,12 @@ select {
   box-shadow: 0 0.9rem 2rem rgba(21, 48, 66, 0.15);
 }
 
+.button-danger {
+  background: linear-gradient(135deg, #b54d3c 0%, #d9765e 100%);
+  color: #fff8f4;
+  box-shadow: 0 0.9rem 2rem rgba(181, 77, 60, 0.18);
+}
+
 .button-quiet {
   background: rgba(255, 249, 240, 0.75);
   color: #173955;

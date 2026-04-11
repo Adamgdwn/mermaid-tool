@@ -18,8 +18,8 @@ This project is a local desktop app, so deployment means preparing a machine to 
 6. Run `npm run package:linux` to generate distributables in `release/`.
 7. Install with either:
    - `npm run install:desktop` for the local source checkout flow
-   - `sudo dpkg -i "release/Mermaid Tool-0.1.1-amd64.deb"` for a system package
-   - `chmod +x "release/Mermaid Tool-0.1.1-x86_64.AppImage"` and launch the AppImage directly
+   - `sudo dpkg -i "release/Mermaid Tool-0.1.2-amd64.deb"` for a system package
+   - `chmod +x "release/Mermaid Tool-0.1.2-x86_64.AppImage"` and launch the AppImage directly
 8. Launch `Mermaid Tool` from the applications menu, the installed package, the AppImage, or `bin/launch-mermaid-tool.sh`.
 
 ## Rollback
@@ -37,7 +37,10 @@ This project is a local desktop app, so deployment means preparing a machine to 
 - open a sample `.mmd` file
 - change the text and verify the preview refreshes
 - save the file and confirm disk changes
+- wipe the editor and confirm a blank document can be saved cleanly
+- delete a saved test file and confirm the app returns to an untitled document
 - export both SVG and PNG successfully
 - confirm the desktop launcher opens the app from the menu
 - confirm `.mmd` and `.mermaid` open in Mermaid Tool after installation
+- confirm a dirty document recovers after relaunch
 - confirm the AppImage launches and the `.deb` installs cleanly
