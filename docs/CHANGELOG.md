@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.9 - 2026-04-11
+
+- made `Save As` default to the local draft folder for unsaved diagrams so the dialog lines up with autosave recovery
+- kept `Save As` anchored to the current file folder when you are editing an existing saved document
+
 ## 0.1.8 - 2026-04-11
 
 - tightened the default Mermaid flowchart layout so large diagrams use space more logically and wrap labels sooner

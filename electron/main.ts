@@ -75,6 +75,18 @@ function getDraftFilePath(): string {
   return path.join(app.getPath("userData"), "drafts", SESSION_DRAFT_FILE);
 }
 
+function getDraftDirectoryPath(): string {
+  return path.dirname(getDraftFilePath());
+}
+
+function getDefaultDocumentSavePath(request: SaveDocumentRequest): string {
+  if (request.path) {
+    return path.join(path.dirname(request.path), request.suggestedName);
+  }
+
+  return path.join(getDraftDirectoryPath(), request.suggestedName);
+}
+
 async function readDraft(): Promise<DraftPayload | null> {
   const draftPath = getDraftFilePath();
 
@@ -194,7 +206,7 @@ async function persistTextDocument(
 
   if (forceDialog || !destinationPath) {
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: path.join(app.getPath("documents"), request.suggestedName),
+      defaultPath: getDefaultDocumentSavePath(request),
       filters: TEXT_FILE_FILTERS
     });
 

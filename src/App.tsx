@@ -430,6 +430,7 @@ function App() {
     const saveResult = forceDialog || !documentPath
       ? await window.mermaidTool.saveDocumentAs({
           content: source,
+          path: documentPath,
           suggestedName
         })
       : await window.mermaidTool.saveDocument({

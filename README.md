@@ -15,6 +15,7 @@ It is built for amateur-friendly local use:
 - fit oversized diagrams by width or whole-diagram view in preview and fullscreen
 - use a tighter default flowchart layout so complex diagrams stay more compact and readable
 - autosave in-progress drafts locally and recover them on restart
+- open `Save As` for unsaved work directly in the same local draft folder used by autosave recovery
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
 - install a Linux desktop launcher for one-click startup
@@ -39,8 +40,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.1.8-x86_64.AppImage`
-  - `release/Mermaid Tool-0.1.8-amd64.deb`
+  - `release/Mermaid Tool-0.1.9-x86_64.AppImage`
+  - `release/Mermaid Tool-0.1.9-amd64.deb`
 
 ## File Associations
 
