@@ -11,6 +11,7 @@ It is built for amateur-friendly local use:
 - preview changes immediately with the official `mermaid` package
 - pop the live preview into a fullscreen presentation view on demand
 - right-drag the preview canvas to grab and pan large diagrams
+- zoom the preview by scrolling directly over the canvas
 - autosave in-progress drafts locally and recover them on restart
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
@@ -36,8 +37,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.1.4-x86_64.AppImage`
-  - `release/Mermaid Tool-0.1.4-amd64.deb`
+  - `release/Mermaid Tool-0.1.5-x86_64.AppImage`
+  - `release/Mermaid Tool-0.1.5-amd64.deb`
 
 ## File Associations
 

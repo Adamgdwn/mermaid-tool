@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.5 - 2026-04-11
+
+- added wheel-based zoom directly on the preview canvas in both normal and fullscreen modes
+- fixed dirty-window shutdown so closing the app now shows an Electron discard prompt instead of silently refusing to quit
+
 ## 0.1.4 - 2026-04-11
 
 - added right-click grab-and-pan behavior for the preview canvas in both normal and fullscreen modes

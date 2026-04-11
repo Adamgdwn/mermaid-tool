@@ -8,7 +8,8 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent
 } from "react";
 import type {
   AppCommand,
@@ -382,6 +383,37 @@ function App() {
     }
   }
 
+  function handlePreviewWheel(event: ReactWheelEvent<HTMLDivElement>): void {
+    if (renderError) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const cursorOffsetX = event.clientX - rect.left;
+    const cursorOffsetY = event.clientY - rect.top;
+    const zoomDelta = event.deltaY < 0 ? 0.12 : -0.12;
+    const nextZoom = Math.min(3.5, Math.max(0.35, Number((zoom + zoomDelta).toFixed(2))));
+
+    if (nextZoom === zoom) {
+      return;
+    }
+
+    const contentPointX = (canvas.scrollLeft + cursorOffsetX) / zoom;
+    const contentPointY = (canvas.scrollTop + cursorOffsetY) / zoom;
+
+    setZoom(nextZoom);
+
+    window.requestAnimationFrame(() => {
+      canvas.scrollLeft = contentPointX * nextZoom - cursorOffsetX;
+      canvas.scrollTop = contentPointY * nextZoom - cursorOffsetY;
+    });
+
+    setStatusMessage(`Preview zoom set to ${Math.round(nextZoom * 100)}%.`);
+  }
+
   function handlePreviewMouseDown(event: ReactMouseEvent<HTMLDivElement>): void {
     if (event.button !== 2) {
       return;
@@ -628,6 +660,7 @@ function App() {
         ].filter(Boolean).join(" ")}
         onContextMenu={handlePreviewContextMenu}
         onMouseDown={handlePreviewMouseDown}
+        onWheel={handlePreviewWheel}
       >
         <div
           className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}

@@ -259,6 +259,25 @@ async function createWindow(): Promise<void> {
 
   await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
+  mainWindow.webContents.on("will-prevent-unload", (event) => {
+    if (!mainWindow) {
+      return;
+    }
+
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      buttons: ["Quit Anyway", "Keep Editing"],
+      cancelId: 1,
+      defaultId: 1,
+      message: "You have unsaved changes.",
+      detail: "Quit Mermaid Tool and discard the current unsaved edits?",
+      type: "warning"
+    });
+
+    if (choice === 0) {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
