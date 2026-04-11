@@ -1,0 +1,39 @@
+# Runbook
+
+## Purpose
+
+Operate and recover the local Mermaid Tool desktop application on a workstation.
+
+## Alerts And Failures
+
+- App will not launch: verify `node_modules/` exists and rerun `npm run build`.
+- Desktop icon does nothing: rerun `npm run install:desktop` and confirm the launcher script is executable.
+- `.mmd` file does not open in Mermaid Tool: rerun `npm run install:desktop` or reinstall the Debian package to refresh MIME registration.
+- Preview fails: inspect the Mermaid syntax in the editor and confirm the preview pane shows a valid render.
+- Export fails: confirm the preview is healthy first, then retry SVG or PNG export.
+- File open or save fails: confirm the target path is writable and the file still exists.
+- Packaged install problems: inspect `release/` artifacts, confirm `dpkg -i` completed, and re-run package generation.
+
+## Dependencies
+
+- Node.js 24+
+- npm 11+
+- local `node_modules` installation
+- Electron runtime from the local dependency tree
+- desktop entry support in `~/.local/share/applications` for launcher installation
+- `update-desktop-database`, `update-mime-database`, and `xdg-mime` for richer desktop integration when available
+
+## Recovery
+
+1. Run `bash scripts/governance-preflight.sh`.
+2. Run `npm install` if dependencies are missing or out of sync.
+3. Run `npm run lint`, `npm run test`, `npm run build`, and `npm run secret-scan`.
+4. Run `npm run package:linux` if the issue is specific to AppImage or Debian delivery.
+5. Remove `dist/` and `release/` and rebuild if launch or package assets look stale.
+6. Reinstall the launcher with `npm run install:desktop`.
+
+## Escalation
+
+- Owner: Adam Goodwin
+- Technical lead for this implementation snapshot: codex session
+- Escalate when validation fails repeatedly, when local file writes are unreliable, or when dependency vulnerability exposure materially changes

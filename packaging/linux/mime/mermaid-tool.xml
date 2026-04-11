@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="text/x-mermaid">
+    <comment>Mermaid diagram source</comment>
+    <glob pattern="*.mmd"/>
+    <glob pattern="*.mermaid"/>
+    <sub-class-of type="text/plain"/>
+  </mime-type>
+  <mime-type type="application/x-mermaid">
+    <comment>Mermaid diagram document</comment>
+    <glob pattern="*.mmd"/>
+    <glob pattern="*.mermaid"/>
+    <sub-class-of type="text/x-mermaid"/>
+  </mime-type>
+</mime-info>

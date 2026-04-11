@@ -1,0 +1,41 @@
+project_name: mermaid-tool
+project_type: application
+risk_tier: medium
+repository_model: single-repo
+owner:
+  name: Adam Goodwin
+  role: owner
+technical_lead:
+  name: codex session
+  role: technical-lead
+status: active
+environments:
+  - dev
+  - staging
+  - prod
+data_classification:
+  handles_sensitive_data: false
+  handles_money: false
+  notes: ""
+controls:
+  required_docs:
+    - README.md
+    - docs/architecture.md
+    - docs/manual.md
+    - docs/roadmap.md
+    - docs/deployment-guide.md
+    - docs/runbook.md
+    - docs/CHANGELOG.md
+    - docs/risks/risk-register.md
+  machine_enforcement:
+    - required-file-check
+    - lint
+    - tests
+    - secret-scan
+exceptions: []
+agent_controls:
+  applicable: false
+  autonomy_level: A0
+  model_registry: []
+  prompt_registry: []
+

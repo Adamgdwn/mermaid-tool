@@ -1,0 +1,132 @@
+{
+  "name": "mermaid-tool",
+  "productName": "Mermaid Tool",
+  "version": "0.1.0",
+  "description": "A local desktop Mermaid diagram editor with live preview and export tools.",
+  "main": "dist/electron/main.js",
+  "author": {
+    "name": "Adam Goodwin",
+    "email": "adamgoodwin@shaw.ca"
+  },
+  "homepage": "https://mermaid.js.org/",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate:icons": "python3 scripts/generate-icons.py",
+    "build:renderer": "vite build",
+    "build:electron": "rm -rf dist/electron dist/shared && tsc -p electron/tsconfig.json",
+    "build": "npm run build:renderer && npm run build:electron",
+    "start:built": "env -u ELECTRON_RUN_AS_NODE electron --no-sandbox --disable-gpu --disable-gpu-compositing --disable-software-rasterizer --in-process-gpu .",
+    "start": "npm run build && npm run start:built",
+    "install:desktop": "bash scripts/install-desktop-entry.sh",
+    "package:linux": "npm run generate:icons && npm run build && electron-builder --linux AppImage deb",
+    "package:dir": "npm run generate:icons && npm run build && electron-builder --linux dir",
+    "secret-scan": "bash scripts/secret-scan.sh"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "canvg": "^4.0.3",
+    "mermaid": "^11.14.0",
+    "monaco-editor": "^0.55.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.9.2",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vite": "^8.0.8",
+    "vitest": "^4.0.0"
+  },
+  "build": {
+    "appId": "com.adamgoodwin.mermaidtool",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "asar": true,
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "packaging/linux/mime",
+        "to": "mime"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mmd",
+        "name": "Mermaid Diagram",
+        "description": "Mermaid diagram source file",
+        "mimeType": "text/x-mermaid"
+      },
+      {
+        "ext": "mermaid",
+        "name": "Mermaid Diagram",
+        "description": "Mermaid diagram source file",
+        "mimeType": "text/x-mermaid"
+      }
+    ],
+    "linux": {
+      "category": "Graphics",
+      "desktop": {
+        "entry": {
+          "Comment": "Local Mermaid diagram editor with live preview and export",
+          "MimeType": "text/x-mermaid;application/x-mermaid;text/plain;",
+          "StartupWMClass": "Mermaid Tool"
+        }
+      },
+      "executableArgs": [
+        "--no-sandbox",
+        "--disable-gpu",
+        "--disable-gpu-compositing",
+        "--disable-software-rasterizer",
+        "--in-process-gpu"
+      ],
+      "executableName": "mermaid-tool",
+      "icon": "icon.png",
+      "mimeTypes": [
+        "text/x-mermaid",
+        "application/x-mermaid"
+      ],
+      "maintainer": "Adam Goodwin <adamgoodwin@shaw.ca>",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "deb": {
+      "afterInstall": "packaging/linux/after-install.sh",
+      "afterRemove": "packaging/linux/after-remove.sh",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libdrm2",
+        "libgbm1"
+      ]
+    }
+  }
+}
