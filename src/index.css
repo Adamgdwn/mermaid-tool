@@ -347,11 +347,17 @@ select {
   min-height: 38rem;
   overflow: auto;
   padding: 2rem;
+  cursor: grab;
+  user-select: none;
   background:
     linear-gradient(90deg, rgba(21, 48, 66, 0.03) 1px, transparent 1px),
     linear-gradient(rgba(21, 48, 66, 0.03) 1px, transparent 1px),
     linear-gradient(180deg, #fffdf9 0%, #f5efe6 100%);
   background-size: 1.3rem 1.3rem, 1.3rem 1.3rem, 100% 100%;
+}
+
+.preview-canvas-panning {
+  cursor: grabbing;
 }
 
 .preview-canvas-focus {
@@ -374,6 +380,7 @@ select {
 .preview-stage svg {
   display: block;
   max-width: none;
+  pointer-events: none;
 }
 
 .preview-empty {

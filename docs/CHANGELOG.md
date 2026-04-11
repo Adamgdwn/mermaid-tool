@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.4 - 2026-04-11
+
+- added right-click grab-and-pan behavior for the preview canvas in both normal and fullscreen modes
+- added cursor feedback and disabled the browser context menu on the diagram surface to support panning
+
 ## 0.1.3 - 2026-04-11
 
 - added a fullscreen presentation mode for the live preview canvas

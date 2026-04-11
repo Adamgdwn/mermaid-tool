@@ -5,7 +5,10 @@ import {
   useDeferredValue,
   useEffect,
   useEffectEvent,
-  useState
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode
 } from "react";
 import type {
   AppCommand,
@@ -27,6 +30,13 @@ import { TEMPLATE_LIBRARY } from "./lib/templates";
 const THEME_OPTIONS: MermaidThemeName[] = ["default", "neutral", "forest", "dark", "base"];
 const INITIAL_TEMPLATE = TEMPLATE_LIBRARY[0];
 const BLANK_DOCUMENT_SOURCE = "";
+type PreviewPanSession = {
+  element: HTMLDivElement;
+  originClientX: number;
+  originClientY: number;
+  originScrollLeft: number;
+  originScrollTop: number;
+};
 
 function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -59,6 +69,8 @@ function App() {
   const [isRendering, setIsRendering] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const [isPanningPreview, setIsPanningPreview] = useState(false);
+  const previewPanSessionRef = useRef<PreviewPanSession | null>(null);
 
   const deferredSource = useDeferredValue(source);
   const lineCount = countLines(source);
@@ -169,6 +181,39 @@ function App() {
       window.removeEventListener("keydown", handleKeydown);
     };
   }, [isPreviewFullscreen]);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      const activeSession = previewPanSessionRef.current;
+      if (!activeSession) {
+        return;
+      }
+
+      const deltaX = event.clientX - activeSession.originClientX;
+      const deltaY = event.clientY - activeSession.originClientY;
+      activeSession.element.scrollLeft = activeSession.originScrollLeft - deltaX;
+      activeSession.element.scrollTop = activeSession.originScrollTop - deltaY;
+    };
+
+    const finishPanning = () => {
+      if (!previewPanSessionRef.current) {
+        return;
+      }
+
+      previewPanSessionRef.current = null;
+      setIsPanningPreview(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", finishPanning);
+    window.addEventListener("blur", finishPanning);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", finishPanning);
+      window.removeEventListener("blur", finishPanning);
+    };
+  }, []);
 
   useEffect(() => {
     if (!dirty) {
@@ -335,6 +380,27 @@ function App() {
     } finally {
       setIsExporting(false);
     }
+  }
+
+  function handlePreviewMouseDown(event: ReactMouseEvent<HTMLDivElement>): void {
+    if (event.button !== 2) {
+      return;
+    }
+
+    event.preventDefault();
+    previewPanSessionRef.current = {
+      element: event.currentTarget,
+      originClientX: event.clientX,
+      originClientY: event.clientY,
+      originScrollLeft: event.currentTarget.scrollLeft,
+      originScrollTop: event.currentTarget.scrollTop
+    };
+    setIsPanningPreview(true);
+    setStatusMessage("Right-drag the canvas to pan around the diagram.");
+  }
+
+  function handlePreviewContextMenu(event: ReactMouseEvent<HTMLDivElement>): void {
+    event.preventDefault();
   }
 
   async function closePreviewFullscreen(): Promise<void> {
@@ -543,20 +609,34 @@ function App() {
     };
   }, []);
 
-  const previewBody = renderError ? (
-    <div className="preview-empty">
-      <h3>Preview paused</h3>
-      <p>{renderError}</p>
-    </div>
-  ) : (
-    <div className={`preview-canvas ${isPreviewFullscreen ? "preview-canvas-focus" : ""}`}>
+  function renderPreviewBody(inFocusMode: boolean): ReactNode {
+    if (renderError) {
+      return (
+        <div className="preview-empty">
+          <h3>Preview paused</h3>
+          <p>{renderError}</p>
+        </div>
+      );
+    }
+
+    return (
       <div
-        className={`preview-stage ${isPreviewFullscreen ? "preview-stage-focus" : ""}`}
-        style={{ transform: `scale(${zoom})` }}
-        dangerouslySetInnerHTML={{ __html: svgMarkup }}
-      />
-    </div>
-  );
+        className={[
+          "preview-canvas",
+          inFocusMode ? "preview-canvas-focus" : "",
+          isPanningPreview ? "preview-canvas-panning" : ""
+        ].filter(Boolean).join(" ")}
+        onContextMenu={handlePreviewContextMenu}
+        onMouseDown={handlePreviewMouseDown}
+      >
+        <div
+          className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}
+          style={{ transform: `scale(${zoom})` }}
+          dangerouslySetInnerHTML={{ __html: svgMarkup }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="shell">
@@ -736,7 +816,7 @@ function App() {
             </div>
           </div>
 
-          <div className="preview-shell">{previewBody}</div>
+          <div className="preview-shell">{renderPreviewBody(false)}</div>
         </section>
       </main>
 
@@ -772,7 +852,7 @@ function App() {
             </div>
           </div>
 
-          <div className="preview-focus-shell">{previewBody}</div>
+          <div className="preview-focus-shell">{renderPreviewBody(true)}</div>
         </div>
       ) : null}
     </div>
