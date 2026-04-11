@@ -18,10 +18,9 @@ const TEXT_FILE_FILTERS = [
     extensions: ["mmd", "mermaid", "md", "txt"]
   }
 ];
-const SESSION_DRAFT_FILE = "session-draft.json";
-
-let mainWindow: BrowserWindow | null = null;
-let initialLaunchDocument: DocumentPayload | null = null;
+const windows = new Map<number, BrowserWindow>();
+const pendingLaunchDocuments = new Map<number, DocumentPayload[]>();
+const queuedLaunchDocuments: DocumentPayload[] = [];
 
 app.commandLine.appendSwitch("disable-gpu");
 app.commandLine.appendSwitch("disable-gpu-compositing");
@@ -67,16 +66,29 @@ async function readDocument(filePath: string): Promise<DocumentPayload> {
   };
 }
 
-function sendAppCommand(command: AppCommand): void {
-  mainWindow?.webContents.send("app:command", command);
+function getTargetWindow(): BrowserWindow | null {
+  return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
 }
 
-function getDraftFilePath(): string {
-  return path.join(app.getPath("userData"), "drafts", SESSION_DRAFT_FILE);
+function getWindowFromWebContents(webContents: Electron.WebContents): BrowserWindow {
+  const browserWindow = BrowserWindow.fromWebContents(webContents);
+  if (!browserWindow) {
+    throw new Error("The current Mermaid Tool window is not available.");
+  }
+
+  return browserWindow;
+}
+
+function sendAppCommand(command: AppCommand): void {
+  getTargetWindow()?.webContents.send("app:command", command);
+}
+
+function getDraftFilePath(draftId: string): string {
+  return path.join(app.getPath("userData"), "drafts", `${draftId}.json`);
 }
 
 function getDraftDirectoryPath(): string {
-  return path.dirname(getDraftFilePath());
+  return path.join(app.getPath("userData"), "drafts");
 }
 
 function getDefaultDocumentSavePath(request: SaveDocumentRequest): string {
@@ -87,15 +99,32 @@ function getDefaultDocumentSavePath(request: SaveDocumentRequest): string {
   return path.join(getDraftDirectoryPath(), request.suggestedName);
 }
 
-async function readDraft(): Promise<DraftPayload | null> {
-  const draftPath = getDraftFilePath();
-
+async function readDrafts(): Promise<DraftPayload[]> {
   try {
-    const rawDraft = await fsp.readFile(draftPath, "utf8");
-    return JSON.parse(rawDraft) as DraftPayload;
+    const draftDirectoryPath = getDraftDirectoryPath();
+    const draftFiles = (await fsp.readdir(draftDirectoryPath))
+      .filter((entryName) => entryName.endsWith(".json"))
+      .sort();
+
+    const drafts = await Promise.all(draftFiles.map(async (entryName) => {
+      const draftPath = path.join(draftDirectoryPath, entryName);
+      const rawDraft = await fsp.readFile(draftPath, "utf8");
+      const parsedDraft = JSON.parse(rawDraft) as Partial<DraftPayload>;
+
+      return {
+        content: parsedDraft.content ?? "",
+        draftId: parsedDraft.draftId ?? path.basename(entryName, ".json"),
+        documentName: parsedDraft.documentName ?? "recovered-draft.mmd",
+        documentPath: parsedDraft.documentPath,
+        theme: parsedDraft.theme ?? "default",
+        updatedAt: parsedDraft.updatedAt ?? new Date().toISOString()
+      } satisfies DraftPayload;
+    }));
+
+    return drafts.sort((leftDraft, rightDraft) => rightDraft.updatedAt.localeCompare(leftDraft.updatedAt));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return null;
+      return [];
     }
 
     throw error;
@@ -103,14 +132,14 @@ async function readDraft(): Promise<DraftPayload | null> {
 }
 
 async function writeDraft(draft: DraftPayload): Promise<void> {
-  const draftPath = getDraftFilePath();
+  const draftPath = getDraftFilePath(draft.draftId);
   await fsp.mkdir(path.dirname(draftPath), { recursive: true });
   await fsp.writeFile(draftPath, JSON.stringify(draft, null, 2), "utf8");
 }
 
-async function clearDraft(): Promise<void> {
+async function clearDraft(draftId: string): Promise<void> {
   try {
-    await fsp.unlink(getDraftFilePath());
+    await fsp.unlink(getDraftFilePath(draftId));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       throw error;
@@ -123,7 +152,14 @@ function buildMenu(): void {
     {
       label: "File",
       submenu: [
-        { accelerator: "CmdOrCtrl+N", click: () => sendAppCommand("new"), label: "New" },
+        { accelerator: "CmdOrCtrl+N", click: () => sendAppCommand("new"), label: "New Tab" },
+        {
+          accelerator: "CmdOrCtrl+Shift+N",
+          click: () => {
+            void createWindow();
+          },
+          label: "New Window"
+        },
         { accelerator: "CmdOrCtrl+O", click: () => sendAppCommand("open"), label: "Open..." },
         { accelerator: "CmdOrCtrl+S", click: () => sendAppCommand("save"), label: "Save" },
         {
@@ -131,6 +167,9 @@ function buildMenu(): void {
           click: () => sendAppCommand("saveAs"),
           label: "Save As..."
         },
+        { type: "separator" },
+        { accelerator: "CmdOrCtrl+W", click: () => sendAppCommand("closeTab"), label: "Close Tab" },
+        { role: "close", label: "Close Window" },
         { type: "separator" },
         { click: () => sendAppCommand("wipe"), label: "Wipe Editor" },
         { click: () => sendAppCommand("deleteFile"), label: "Delete File" },
@@ -171,20 +210,21 @@ function buildMenu(): void {
   Menu.setApplicationMenu(menu);
 }
 
-async function dispatchOpenedDocument(filePath: string): Promise<void> {
+async function dispatchOpenedDocument(filePath: string, preferredWindow?: BrowserWindow | null): Promise<void> {
   try {
     const document = await readDocument(filePath);
-    if (!mainWindow) {
-      initialLaunchDocument = document;
+    const targetWindow = preferredWindow ?? getTargetWindow();
+    if (!targetWindow) {
+      queuedLaunchDocuments.push(document);
       return;
     }
 
     const sendDocument = () => {
-      mainWindow?.webContents.send("file:opened", document);
+      targetWindow.webContents.send("file:opened", document);
     };
 
-    if (mainWindow.webContents.isLoadingMainFrame()) {
-      mainWindow.webContents.once("did-finish-load", sendDocument);
+    if (targetWindow.webContents.isLoadingMainFrame()) {
+      targetWindow.webContents.once("did-finish-load", sendDocument);
       return;
     }
 
@@ -195,17 +235,14 @@ async function dispatchOpenedDocument(filePath: string): Promise<void> {
 }
 
 async function persistTextDocument(
+  browserWindow: BrowserWindow,
   request: SaveDocumentRequest,
   forceDialog: boolean
 ): Promise<SaveResult> {
-  if (!mainWindow) {
-    throw new Error("The main window is not ready.");
-  }
-
   let destinationPath = request.path;
 
   if (forceDialog || !destinationPath) {
-    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
       defaultPath: getDefaultDocumentSavePath(request),
       filters: TEXT_FILE_FILTERS
     });
@@ -224,12 +261,11 @@ async function persistTextDocument(
   };
 }
 
-async function persistAsset(request: SaveAssetRequest): Promise<SaveResult> {
-  if (!mainWindow) {
-    throw new Error("The main window is not ready.");
-  }
-
-  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+async function persistAsset(
+  browserWindow: BrowserWindow,
+  request: SaveAssetRequest
+): Promise<SaveResult> {
+  const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
     defaultPath: path.join(app.getPath("documents"), request.suggestedName),
     filters: request.filters
   });
@@ -254,8 +290,8 @@ async function deleteTextDocument(filePath: string): Promise<void> {
   await fsp.unlink(filePath);
 }
 
-async function createWindow(): Promise<void> {
-  mainWindow = new BrowserWindow({
+async function createWindow(initialDocuments: DocumentPayload[] = []): Promise<BrowserWindow> {
+  const browserWindow = new BrowserWindow({
     width: 1600,
     height: 980,
     minWidth: 1160,
@@ -269,14 +305,20 @@ async function createWindow(): Promise<void> {
     }
   });
 
-  await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  windows.set(browserWindow.id, browserWindow);
 
-  mainWindow.webContents.on("will-prevent-unload", (event) => {
-    if (!mainWindow) {
-      return;
-    }
+  const startupDocuments = [
+    ...queuedLaunchDocuments.splice(0, queuedLaunchDocuments.length),
+    ...initialDocuments
+  ];
+  if (startupDocuments.length > 0) {
+    pendingLaunchDocuments.set(browserWindow.id, startupDocuments);
+  }
 
-    const choice = dialog.showMessageBoxSync(mainWindow, {
+  await browserWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+
+  browserWindow.webContents.on("will-prevent-unload", (event) => {
+    const choice = dialog.showMessageBoxSync(browserWindow, {
       buttons: ["Quit Anyway", "Keep Editing"],
       cancelId: 1,
       defaultId: 1,
@@ -290,9 +332,12 @@ async function createWindow(): Promise<void> {
     }
   });
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  browserWindow.on("closed", () => {
+    windows.delete(browserWindow.id);
+    pendingLaunchDocuments.delete(browserWindow.id);
   });
+
+  return browserWindow;
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -304,16 +349,17 @@ app.setName(APP_NAME);
 
 app.on("second-instance", (_event, argv) => {
   const launchFile = extractLaunchFile(argv);
+  const targetWindow = getTargetWindow();
   if (launchFile) {
-    void dispatchOpenedDocument(launchFile);
+    void dispatchOpenedDocument(launchFile, targetWindow);
   }
 
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
+  if (targetWindow) {
+    if (targetWindow.isMinimized()) {
+      targetWindow.restore();
     }
 
-    mainWindow.focus();
+    targetWindow.focus();
   }
 });
 
@@ -323,17 +369,18 @@ app.on("open-file", (event, filePath) => {
 });
 
 app.whenReady().then(async () => {
+  const launchDocuments: DocumentPayload[] = [];
   const launchFile = extractLaunchFile(process.argv);
   if (launchFile) {
     try {
-      initialLaunchDocument = await readDocument(launchFile);
+      launchDocuments.push(await readDocument(launchFile));
     } catch (error) {
       dialog.showErrorBox(APP_NAME, `Couldn't open the requested file.\n\n${getErrorMessage(error)}`);
     }
   }
 
   buildMenu();
-  await createWindow();
+  await createWindow(launchDocuments);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -350,27 +397,30 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle("app:getVersion", () => app.getVersion());
 
-ipcMain.handle("file:getLaunchDocument", () => {
-  const pendingDocument = initialLaunchDocument;
-  initialLaunchDocument = null;
-  return pendingDocument;
+ipcMain.handle("window:new", async () => {
+  await createWindow();
 });
 
-ipcMain.handle("file:open", async () => {
-  if (!mainWindow) {
-    throw new Error("The main window is not ready.");
-  }
+ipcMain.handle("file:getLaunchDocuments", (event) => {
+  const browserWindow = getWindowFromWebContents(event.sender);
+  const launchDocuments = pendingLaunchDocuments.get(browserWindow.id) ?? [];
+  pendingLaunchDocuments.delete(browserWindow.id);
+  return launchDocuments;
+});
 
-  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+ipcMain.handle("file:open", async (event) => {
+  const browserWindow = getWindowFromWebContents(event.sender);
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
     filters: TEXT_FILE_FILTERS,
-    properties: ["openFile"]
+    properties: ["multiSelections", "openFile"]
   });
 
   if (canceled || filePaths.length === 0) {
-    return null;
+    return [];
   }
 
-  return readDocument(filePaths[0]);
+  return Promise.all(filePaths.map((filePath) => readDocument(filePath)));
 });
 
 ipcMain.handle("file:delete", async (_event, filePath: string) => {
@@ -378,25 +428,25 @@ ipcMain.handle("file:delete", async (_event, filePath: string) => {
 });
 
 ipcMain.handle("file:save", async (_event, request: SaveDocumentRequest) => {
-  return persistTextDocument(request, false);
+  return persistTextDocument(getWindowFromWebContents(_event.sender), request, false);
 });
 
 ipcMain.handle("file:saveAs", async (_event, request: SaveDocumentRequest) => {
-  return persistTextDocument(request, true);
+  return persistTextDocument(getWindowFromWebContents(_event.sender), request, true);
 });
 
 ipcMain.handle("file:exportAsset", async (_event, request: SaveAssetRequest) => {
-  return persistAsset(request);
+  return persistAsset(getWindowFromWebContents(_event.sender), request);
 });
 
 ipcMain.handle("draft:getRecovered", async () => {
-  return readDraft();
+  return readDrafts();
 });
 
 ipcMain.handle("draft:save", async (_event, draft: DraftPayload) => {
   await writeDraft(draft);
 });
 
-ipcMain.handle("draft:clear", async () => {
-  await clearDraft();
+ipcMain.handle("draft:clear", async (_event, draftId: string) => {
+  await clearDraft(draftId);
 });

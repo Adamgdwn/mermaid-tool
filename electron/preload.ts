@@ -9,16 +9,19 @@ import type {
 } from "../shared/contracts";
 
 contextBridge.exposeInMainWorld("mermaidTool", {
+  createWindow(): Promise<void> {
+    return ipcRenderer.invoke("window:new");
+  },
   getAppVersion(): Promise<string> {
     return ipcRenderer.invoke("app:getVersion");
   },
-  getLaunchDocument(): Promise<DocumentPayload | null> {
-    return ipcRenderer.invoke("file:getLaunchDocument");
+  getLaunchDocuments(): Promise<DocumentPayload[]> {
+    return ipcRenderer.invoke("file:getLaunchDocuments");
   },
-  getRecoveredDraft(): Promise<DraftPayload | null> {
+  getRecoveredDrafts(): Promise<DraftPayload[]> {
     return ipcRenderer.invoke("draft:getRecovered");
   },
-  openDocument(): Promise<DocumentPayload | null> {
+  openDocuments(): Promise<DocumentPayload[]> {
     return ipcRenderer.invoke("file:open");
   },
   deleteDocument(documentPath: string): Promise<void> {
@@ -33,8 +36,8 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   saveDraft(request: DraftPayload): Promise<void> {
     return ipcRenderer.invoke("draft:save", request);
   },
-  clearDraft(): Promise<void> {
-    return ipcRenderer.invoke("draft:clear");
+  clearDraft(draftId: string): Promise<void> {
+    return ipcRenderer.invoke("draft:clear", draftId);
   },
   exportAsset(request: SaveAssetRequest): Promise<SaveResult> {
     return ipcRenderer.invoke("file:exportAsset", request);

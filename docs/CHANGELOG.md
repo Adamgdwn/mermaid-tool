@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.0 - 2026-04-11
+
+- added tabbed editing so multiple Mermaid files can stay open concurrently inside the same window
+- added multi-window Electron support with `New Window` and per-window file routing
+- switched draft recovery from a single session file to per-tab draft files so concurrent work can be restored cleanly
+- updated open, save, close-tab, and startup flows to work against the active tab instead of replacing the whole workspace
+
 ## 0.1.9 - 2026-04-11
 
 - made `Save As` default to the local draft folder for unsaved diagrams so the dialog lines up with autosave recovery

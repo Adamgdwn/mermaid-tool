@@ -2,13 +2,13 @@
 
 ## Summary
 
-Mermaid Tool is a local-first Electron desktop application. The main process handles file dialogs, save and export writes, draft persistence, desktop-style window lifecycle, and launch-time file opening. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
+ Mermaid Tool is a local-first Electron desktop application. The main process handles file dialogs, save and export writes, draft persistence, multi-window lifecycle, and launch-time file opening. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
 
 ## Components
 
-- `electron/main.ts`: creates the desktop window, exposes file open/save/delete/export handlers, routes launch-time file opening, stores the session draft in Electron user data, and brokers dirty-window close confirmation.
+- `electron/main.ts`: creates desktop windows, exposes file open/save/delete/export handlers, routes launch-time file opening into the right window, stores per-tab drafts in Electron user data, and brokers dirty-window close confirmation.
 - `electron/preload.ts`: safely bridges IPC methods into the renderer through `window.mermaidTool`.
-- `src/App.tsx`: application shell, editing workflow, preview, true SVG scaling, fit-width and whole-view controls, wheel zoom, right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
+- `src/App.tsx`: application shell, tab workspace, multi-document editing workflow, preview, true SVG scaling, fit-width and whole-view controls, wheel zoom, right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
 - `src/lib/document.ts`: document naming, diagram detection, and export filename helpers.
 - `src/lib/export.ts`: SVG-to-PNG conversion using `canvg`.
 - `src/lib/templates.ts`: built-in starter diagrams for amateur-friendly onboarding.
@@ -17,12 +17,12 @@ Mermaid Tool is a local-first Electron desktop application. The main process han
 
 ## Data Flow
 
-1. The user opens or creates a Mermaid document.
-2. The renderer updates local React state with the working text.
-3. Mermaid renders the current source into SVG entirely on the client.
-4. When the current document is dirty, the renderer debounces a session-draft autosave request to the main process.
-5. Export actions generate SVG text or render PNG bytes locally.
-6. The Electron main process writes files chosen by the user to local disk and can restore the last draft on restart.
+1. The user opens or creates one or more Mermaid documents as tabs inside a window.
+2. The renderer keeps independent tab state for content, save status, theme, and recovery draft metadata.
+3. Mermaid renders the active tab source into SVG entirely on the client.
+4. When a tab is dirty, the renderer debounces a per-tab autosave request to the main process.
+5. Export actions generate SVG text or render PNG bytes locally for the active tab.
+6. The Electron main process writes files chosen by the user to local disk and can restore multiple draft tabs on restart.
 
 The app is local-only by default. It does not require a backend, does not move money, and does not intentionally handle sensitive data.
 

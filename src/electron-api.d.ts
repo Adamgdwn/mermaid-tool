@@ -10,15 +10,16 @@ import type {
 declare global {
   interface Window {
     mermaidTool: {
-      clearDraft(): Promise<void>;
+      clearDraft(draftId: string): Promise<void>;
+      createWindow(): Promise<void>;
       deleteDocument(documentPath: string): Promise<void>;
       exportAsset(request: SaveAssetRequest): Promise<SaveResult>;
       getAppVersion(): Promise<string>;
-      getLaunchDocument(): Promise<DocumentPayload | null>;
-      getRecoveredDraft(): Promise<DraftPayload | null>;
+      getLaunchDocuments(): Promise<DocumentPayload[]>;
+      getRecoveredDrafts(): Promise<DraftPayload[]>;
       onCommand(listener: (command: AppCommand) => void): () => void;
       onOpenDocument(listener: (document: DocumentPayload) => void): () => void;
-      openDocument(): Promise<DocumentPayload | null>;
+      openDocuments(): Promise<DocumentPayload[]>;
       saveDraft(request: DraftPayload): Promise<void>;
       saveDocument(request: SaveDocumentRequest): Promise<SaveResult>;
       saveDocumentAs(request: SaveDocumentRequest): Promise<SaveResult>;

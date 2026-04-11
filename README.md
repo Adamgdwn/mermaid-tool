@@ -7,6 +7,8 @@ Mermaid Tool is a local desktop Mermaid editor for people who want a simple, pol
 It is built for amateur-friendly local use:
 
 - open Mermaid files from disk
+- keep several documents open at once with tabs inside each window
+- open multiple Mermaid Tool windows for side-by-side work
 - edit diagrams in a large Monaco-powered editor
 - preview changes immediately with the official `mermaid` package
 - pop the live preview into a fullscreen presentation view on demand
@@ -15,6 +17,7 @@ It is built for amateur-friendly local use:
 - fit oversized diagrams by width or whole-diagram view in preview and fullscreen
 - use a tighter default flowchart layout so complex diagrams stay more compact and readable
 - autosave in-progress drafts locally and recover them on restart
+- autosave each open tab as its own local recovery draft
 - open `Save As` for unsaved work directly in the same local draft folder used by autosave recovery
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
@@ -40,8 +43,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.1.9-x86_64.AppImage`
-  - `release/Mermaid Tool-0.1.9-amd64.deb`
+  - `release/Mermaid Tool-0.2.0-x86_64.AppImage`
+  - `release/Mermaid Tool-0.2.0-amd64.deb`
 
 ## File Associations
 

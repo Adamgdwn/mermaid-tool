@@ -1,7 +1,6 @@
 import Editor from "@monaco-editor/react";
 import mermaid from "mermaid";
 import {
-  startTransition,
   useDeferredValue,
   useEffect,
   useEffectEvent,
@@ -43,6 +42,7 @@ const FLOWCHART_LAYOUT = {
   useMaxWidth: false,
   wrappingWidth: 200
 };
+
 type PreviewPanSession = {
   element: HTMLDivElement;
   originClientX: number;
@@ -50,9 +50,22 @@ type PreviewPanSession = {
   originScrollLeft: number;
   originScrollTop: number;
 };
+
 type SvgSize = {
   height: number;
   width: number;
+};
+
+type WorkspaceTab = {
+  documentName: string;
+  documentPath?: string;
+  draftId: string;
+  draftSavedAt?: string;
+  dirty: boolean;
+  id: string;
+  lastSavedAt?: string;
+  source: string;
+  theme: MermaidThemeName;
 };
 
 function formatErrorMessage(error: unknown): string {
@@ -110,17 +123,60 @@ function getSvgSize(svgMarkup: string): SvgSize | null {
   return null;
 }
 
+function createWorkspaceTab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab {
+  return {
+    documentName: DEFAULT_DOCUMENT_NAME,
+    draftId: crypto.randomUUID(),
+    dirty: false,
+    id: crypto.randomUUID(),
+    source: BLANK_DOCUMENT_SOURCE,
+    theme: "default",
+    ...overrides
+  };
+}
+
+function createStartupTab(): WorkspaceTab {
+  return createWorkspaceTab({
+    source: INITIAL_TEMPLATE.source
+  });
+}
+
+function createTabFromDocument(document: DocumentPayload): WorkspaceTab {
+  return createWorkspaceTab({
+    documentName: document.name,
+    documentPath: document.path,
+    source: document.content
+  });
+}
+
+function createTabFromDraft(draft: DraftPayload): WorkspaceTab {
+  return createWorkspaceTab({
+    documentName: ensureMermaidExtension(draft.documentName),
+    documentPath: draft.documentPath,
+    draftId: draft.draftId,
+    draftSavedAt: formatClockTime(draft.updatedAt),
+    dirty: true,
+    source: draft.content,
+    theme: draft.theme
+  });
+}
+
+function getMonacoModelPath(tab: WorkspaceTab): string {
+  if (tab.documentPath) {
+    return tab.documentPath;
+  }
+
+  return `inmemory://${tab.id}/${ensureMermaidExtension(tab.documentName)}`;
+}
+
 function App() {
+  const initialTabRef = useRef<WorkspaceTab>(createStartupTab());
+
   const [appVersion, setAppVersion] = useState("0.0.0");
-  const [documentPath, setDocumentPath] = useState<string>();
-  const [documentName, setDocumentName] = useState(DEFAULT_DOCUMENT_NAME);
-  const [source, setSource] = useState(INITIAL_TEMPLATE.source);
-  const [theme, setTheme] = useState<MermaidThemeName>("default");
-  const [dirty, setDirty] = useState(false);
+  const [tabs, setTabs] = useState<WorkspaceTab[]>([initialTabRef.current]);
+  const [activeTabId, setActiveTabId] = useState(initialTabRef.current.id);
   const [zoom, setZoom] = useState(1);
   const [statusMessage, setStatusMessage] = useState("Ready to diagram locally.");
-  const [lastSavedAt, setLastSavedAt] = useState<string>();
-  const [draftSavedAt, setDraftSavedAt] = useState<string>();
   const [svgMarkup, setSvgMarkup] = useState("");
   const [renderError, setRenderError] = useState("");
   const [isRendering, setIsRendering] = useState(true);
@@ -128,13 +184,137 @@ function App() {
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isPanningPreview, setIsPanningPreview] = useState(false);
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
+
+  const tabsRef = useRef(tabs);
+  const activeTabIdRef = useRef(activeTabId);
+  const activeTabRef = useRef<WorkspaceTab>(initialTabRef.current);
   const previewPanSessionRef = useRef<PreviewPanSession | null>(null);
   const previewCanvasRef = useRef<HTMLDivElement | null>(null);
   const previewFocusCanvasRef = useRef<HTMLDivElement | null>(null);
 
-  const deferredSource = useDeferredValue(source);
-  const lineCount = countLines(source);
-  const diagramType = detectDiagramType(source);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? initialTabRef.current;
+  const deferredSource = useDeferredValue(activeTab.source);
+  const lineCount = countLines(activeTab.source);
+  const diagramType = detectDiagramType(activeTab.source);
+  const isWindowDirty = tabs.some((tab) => tab.dirty);
+
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
+
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.id === activeTabId) && tabs[0]) {
+      setActiveTabId(tabs[0].id);
+    }
+  }, [activeTabId, tabs]);
+
+  function setWorkspace(nextTabs: WorkspaceTab[], nextActiveTabId: string): void {
+    tabsRef.current = nextTabs;
+    activeTabIdRef.current = nextActiveTabId;
+    setTabs(nextTabs);
+    setActiveTabId(nextActiveTabId);
+  }
+
+  function updateTab(tabId: string, updater: (tab: WorkspaceTab) => WorkspaceTab): void {
+    const nextTabs = tabsRef.current.map((tab) => (tab.id === tabId ? updater(tab) : tab));
+    setWorkspace(nextTabs, activeTabIdRef.current);
+  }
+
+  async function deleteDraftById(draftId: string): Promise<void> {
+    try {
+      await window.mermaidTool.clearDraft(draftId);
+    } catch {
+      // Draft cleanup should not block the user flow.
+    }
+  }
+
+  async function saveDraftForTab(
+    tab: WorkspaceTab,
+    options: { setStatusOnError?: boolean } = { setStatusOnError: true }
+  ): Promise<void> {
+    if (!tab.dirty) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    try {
+      await window.mermaidTool.saveDraft({
+        content: tab.source,
+        draftId: tab.draftId,
+        documentName: ensureMermaidExtension(tab.documentName),
+        documentPath: tab.documentPath,
+        theme: tab.theme,
+        updatedAt
+      });
+
+      updateTab(tab.id, (currentTab) => ({
+        ...currentTab,
+        draftSavedAt: formatClockTime(updatedAt)
+      }));
+    } catch (error) {
+      if (options.setStatusOnError ?? true) {
+        setStatusMessage(`Autosave failed: ${formatErrorMessage(error)}`);
+      }
+    }
+  }
+
+  const autosaveActiveTab = useEffectEvent((tab: WorkspaceTab) => {
+    void saveDraftForTab(tab);
+  });
+
+  function appendDocumentsToTabs(
+    documents: DocumentPayload[],
+    origin: "external" | "open" | "startup" = "open"
+  ): void {
+    if (documents.length === 0) {
+      return;
+    }
+
+    const currentTabs = tabsRef.current;
+    const nextTabs = [...currentTabs];
+    let nextActiveTabId = activeTabIdRef.current;
+    let addedCount = 0;
+    let reusedCount = 0;
+    const lastDocumentName = documents[documents.length - 1]?.name ?? "document";
+
+    for (const document of documents) {
+      const existingTab = nextTabs.find((tab) => tab.documentPath === document.path);
+      if (existingTab) {
+        nextActiveTabId = existingTab.id;
+        reusedCount += 1;
+        continue;
+      }
+
+      const newTab = createTabFromDocument(document);
+      nextTabs.push(newTab);
+      nextActiveTabId = newTab.id;
+      addedCount += 1;
+    }
+
+    setWorkspace(nextTabs, nextActiveTabId);
+
+    if (addedCount > 0) {
+      setStatusMessage(
+        addedCount === 1
+          ? `${origin === "external" ? "Opened" : "Loaded"} ${lastDocumentName} in a new tab.`
+          : `Opened ${addedCount} files in new tabs.`
+      );
+      return;
+    }
+
+    if (reusedCount > 0) {
+      setStatusMessage(`Focused the existing tab for ${lastDocumentName}.`);
+    }
+  }
 
   useEffect(() => {
     if (!deferredSource.trim()) {
@@ -153,7 +333,7 @@ function App() {
         try {
           mermaid.initialize({
             startOnLoad: false,
-            theme,
+            theme: activeTab.theme,
             securityLevel: "strict",
             fontFamily: "IBM Plex Sans, Segoe UI Variable, Segoe UI, sans-serif",
             flowchart: FLOWCHART_LAYOUT,
@@ -164,7 +344,7 @@ function App() {
 
           await mermaid.parse(deferredSource);
 
-          const renderResult = await mermaid.render(`diagram-${crypto.randomUUID()}`, deferredSource);
+          const renderResult = await mermaid.render(`diagram-${activeTab.id}`, deferredSource);
           if (!stillCurrent) {
             return;
           }
@@ -191,11 +371,11 @@ function App() {
       stillCurrent = false;
       window.clearTimeout(timeoutId);
     };
-  }, [deferredSource, theme]);
+  }, [activeTab.id, activeTab.theme, deferredSource]);
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirty) {
+      if (!isWindowDirty) {
         return;
       }
 
@@ -207,7 +387,7 @@ function App() {
     return () => {
       window.removeEventListener("beforeunload", beforeUnload);
     };
-  }, [dirty]);
+  }, [isWindowDirty]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -294,30 +474,18 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!dirty) {
+    if (!activeTab.dirty) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      const updatedAt = new Date().toISOString();
-
-      void window.mermaidTool.saveDraft({
-        content: source,
-        documentName: ensureMermaidExtension(documentName),
-        documentPath,
-        theme,
-        updatedAt
-      }).then(() => {
-        setDraftSavedAt(formatClockTime(updatedAt));
-      }).catch((error: unknown) => {
-        setStatusMessage(`Autosave failed: ${formatErrorMessage(error)}`);
-      });
+      autosaveActiveTab(activeTab);
     }, 900);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [dirty, documentName, documentPath, source, theme]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!svgSize || !isPreviewFullscreen) {
@@ -345,97 +513,103 @@ function App() {
     });
   }, [isPreviewFullscreen, svgSize]);
 
-  async function clearDraftState(): Promise<void> {
-    try {
-      await window.mermaidTool.clearDraft();
-    } catch {
-      // Saving the real file should still succeed even if draft cleanup misses once.
-    } finally {
-      setDraftSavedAt(undefined);
-    }
-  }
-
-  async function confirmDiscard(actionDescription: string): Promise<boolean> {
-    if (!dirty) {
+  async function confirmDiscardTab(tab: WorkspaceTab, actionDescription: string): Promise<boolean> {
+    if (!tab.dirty) {
       return true;
     }
 
-    return window.confirm(`You have unsaved changes. Continue and ${actionDescription}?`);
+    return window.confirm(
+      `${tab.documentName} has unsaved changes. Continue and ${actionDescription}?`
+    );
   }
 
-  function restoreRecoveredDraft(draft: DraftPayload): void {
-    startTransition(() => {
-      setSource(draft.content);
-      setDocumentPath(draft.documentPath);
-      setDocumentName(ensureMermaidExtension(draft.documentName));
-      setTheme(draft.theme);
-      setDirty(true);
-      setLastSavedAt(undefined);
-      setDraftSavedAt(formatClockTime(draft.updatedAt));
-      setStatusMessage(`Recovered your last autosaved draft for ${draft.documentName}.`);
-    });
+  function replaceActiveTab(nextTab: WorkspaceTab): void {
+    const nextTabs = tabsRef.current.map((tab) => (tab.id === nextTab.id ? nextTab : tab));
+    setWorkspace(nextTabs, nextTab.id);
   }
 
-  async function loadDocument(
-    document: DocumentPayload,
-    options: { preserveDraft?: boolean; silent?: boolean } = {}
-  ): Promise<void> {
-    const shouldContinue = options.silent
-      ? true
-      : await confirmDiscard(`open ${document.name}`);
+  async function handleNewTab(): Promise<void> {
+    const newTab = createWorkspaceTab();
+    const nextTabs = [...tabsRef.current, newTab];
+    setWorkspace(nextTabs, newTab.id);
+    setStatusMessage("Opened a fresh untitled tab.");
+  }
 
+  async function handleNewWindow(): Promise<void> {
+    await window.mermaidTool.createWindow();
+    setStatusMessage("Opened a new Mermaid Tool window.");
+  }
+
+  async function handleSelectTab(tabId: string): Promise<void> {
+    if (tabId === activeTabIdRef.current) {
+      return;
+    }
+
+    const previousTab = activeTabRef.current;
+    if (previousTab?.dirty) {
+      void saveDraftForTab(previousTab, { setStatusOnError: false });
+    }
+
+    activeTabIdRef.current = tabId;
+    setActiveTabId(tabId);
+    const nextTab = tabsRef.current.find((tab) => tab.id === tabId);
+    if (nextTab) {
+      setStatusMessage(`Switched to ${nextTab.documentName}.`);
+    }
+  }
+
+  async function handleCloseTab(tabId = activeTabIdRef.current): Promise<void> {
+    const currentTabs = tabsRef.current;
+    const targetTab = currentTabs.find((tab) => tab.id === tabId);
+    if (!targetTab) {
+      return;
+    }
+
+    const shouldContinue = await confirmDiscardTab(targetTab, `close ${targetTab.documentName}`);
     if (!shouldContinue) {
       return;
     }
 
-    if (!options.preserveDraft) {
-      await clearDraftState();
+    await deleteDraftById(targetTab.draftId);
+
+    if (currentTabs.length === 1) {
+      const replacementTab = createWorkspaceTab();
+      setWorkspace([replacementTab], replacementTab.id);
+      setStatusMessage(`Closed ${targetTab.documentName} and opened a fresh untitled tab.`);
+      return;
     }
 
-    startTransition(() => {
-      setSource(document.content);
-      setDocumentPath(document.path);
-      setDocumentName(document.name);
-      setDirty(false);
-      setLastSavedAt(undefined);
-      setStatusMessage(`Opened ${document.name}.`);
-    });
+    const closingIndex = currentTabs.findIndex((tab) => tab.id === tabId);
+    const nextTabs = currentTabs.filter((tab) => tab.id !== tabId);
+    const nextActiveTabId = tabId === activeTabIdRef.current
+      ? (nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id)
+      : activeTabIdRef.current;
+
+    setWorkspace(nextTabs, nextActiveTabId);
+    setStatusMessage(`Closed ${targetTab.documentName}.`);
   }
 
-  const handleIncomingDocument = useEffectEvent(
-    async (
-      incomingDocument: DocumentPayload,
-      options: { preserveDraft?: boolean; silent?: boolean } = {}
-    ) => {
-      await loadDocument(incomingDocument, options);
-    }
-  );
-
-  async function handleOpenDocument(): Promise<void> {
-    const shouldContinue = await confirmDiscard("open another document");
-    if (!shouldContinue) {
+  async function handleOpenDocuments(): Promise<void> {
+    const openedDocuments = await window.mermaidTool.openDocuments();
+    if (openedDocuments.length === 0) {
       return;
     }
 
-    const openedDocument = await window.mermaidTool.openDocument();
-    if (!openedDocument) {
-      return;
-    }
-
-    await loadDocument(openedDocument, { preserveDraft: false, silent: true });
+    appendDocumentsToTabs(openedDocuments, "open");
   }
 
   async function handleSaveDocument(forceDialog: boolean): Promise<void> {
-    const suggestedName = ensureMermaidExtension(documentName);
-    const saveResult = forceDialog || !documentPath
+    const activeSnapshot = activeTabRef.current;
+    const suggestedName = ensureMermaidExtension(activeSnapshot.documentName);
+    const saveResult = forceDialog || !activeSnapshot.documentPath
       ? await window.mermaidTool.saveDocumentAs({
-          content: source,
-          path: documentPath,
+          content: activeSnapshot.source,
+          path: activeSnapshot.documentPath,
           suggestedName
         })
       : await window.mermaidTool.saveDocument({
-          content: source,
-          path: documentPath,
+          content: activeSnapshot.source,
+          path: activeSnapshot.documentPath,
           suggestedName
         });
 
@@ -443,12 +617,17 @@ function App() {
       return;
     }
 
-    await clearDraftState();
+    await deleteDraftById(activeSnapshot.draftId);
 
-    setDocumentPath(saveResult.path);
-    setDocumentName(getFileNameFromPath(saveResult.path));
-    setDirty(false);
-    setLastSavedAt(formatClockTime(new Date().toISOString()));
+    updateTab(activeSnapshot.id, (currentTab) => ({
+      ...currentTab,
+      dirty: false,
+      documentName: getFileNameFromPath(saveResult.path!),
+      documentPath: saveResult.path,
+      draftSavedAt: undefined,
+      lastSavedAt: formatClockTime(new Date().toISOString())
+    }));
+
     setStatusMessage(`Saved ${getFileNameFromPath(saveResult.path)}.`);
   }
 
@@ -461,7 +640,7 @@ function App() {
     setIsExporting(true);
 
     try {
-      const suggestedName = buildExportFileName(documentPath, format);
+      const suggestedName = buildExportFileName(activeTab.documentPath, format);
 
       const saveResult = format === "svg"
         ? await window.mermaidTool.exportAsset({
@@ -626,32 +805,14 @@ function App() {
     fitPreviewToCanvas(activeCanvas, mode, strategy);
   }
 
-  async function handleNewDocument(): Promise<void> {
-    const shouldContinue = await confirmDiscard("start a new document");
-    if (!shouldContinue) {
-      return;
-    }
-
-    await clearDraftState();
-
-    startTransition(() => {
-      setSource(BLANK_DOCUMENT_SOURCE);
-      setDocumentPath(undefined);
-      setDocumentName(DEFAULT_DOCUMENT_NAME);
-      setDirty(false);
-      setLastSavedAt(undefined);
-      setStatusMessage("Started a blank untitled Mermaid document.");
-    });
-  }
-
   async function handleWipeDocument(): Promise<void> {
-    if (!source) {
+    if (!activeTab.source) {
       setStatusMessage("The editor is already blank.");
       return;
     }
 
     const confirmed = window.confirm(
-      documentPath
+      activeTab.documentPath
         ? "Wipe the current editor contents? The file stays on disk until you save the blank version."
         : "Wipe the current editor contents?"
     );
@@ -660,25 +821,27 @@ function App() {
       return;
     }
 
-    startTransition(() => {
-      setSource(BLANK_DOCUMENT_SOURCE);
-      setDirty(true);
-      setDraftSavedAt(undefined);
-      setStatusMessage(
-        documentPath
-          ? "Cleared the editor. Save to overwrite the file, or Save As to keep the original."
-          : "Cleared the editor. Save when you're ready."
-      );
-    });
+    updateTab(activeTab.id, (currentTab) => ({
+      ...currentTab,
+      dirty: true,
+      draftSavedAt: undefined,
+      source: BLANK_DOCUMENT_SOURCE
+    }));
+
+    setStatusMessage(
+      activeTab.documentPath
+        ? "Cleared the editor. Save to overwrite the file, or Save As to keep the original."
+        : "Cleared the editor. Save when you're ready."
+    );
   }
 
   async function handleDeleteDocument(): Promise<void> {
-    if (!documentPath) {
+    if (!activeTab.documentPath) {
       setStatusMessage("There is no saved file to delete yet.");
       return;
     }
 
-    const documentLabel = getFileNameFromPath(documentPath);
+    const documentLabel = getFileNameFromPath(activeTab.documentPath);
     const confirmed = window.confirm(
       `Delete ${documentLabel} from disk? This permanently removes the file.`
     );
@@ -688,47 +851,51 @@ function App() {
     }
 
     try {
-      await window.mermaidTool.deleteDocument(documentPath);
-      await clearDraftState();
+      await window.mermaidTool.deleteDocument(activeTab.documentPath);
+      await deleteDraftById(activeTab.draftId);
 
-      startTransition(() => {
-        setSource(BLANK_DOCUMENT_SOURCE);
-        setDocumentPath(undefined);
-        setDocumentName(DEFAULT_DOCUMENT_NAME);
-        setDirty(false);
-        setLastSavedAt(undefined);
-        setStatusMessage(`Deleted ${documentLabel} and opened a fresh untitled document.`);
-      });
+      replaceActiveTab(
+        createWorkspaceTab({
+          id: activeTab.id
+        })
+      );
+      setStatusMessage(`Deleted ${documentLabel} and reset the tab to a fresh untitled document.`);
     } catch (error) {
       setStatusMessage(`Delete failed: ${formatErrorMessage(error)}`);
     }
   }
 
   async function handleTemplateSwap(templateSource: string, label: string): Promise<void> {
-    const shouldContinue = await confirmDiscard(`replace the editor with ${label}`);
+    const shouldContinue = await confirmDiscardTab(activeTab, `replace the tab with ${label}`);
     if (!shouldContinue) {
       return;
     }
 
-    await clearDraftState();
+    await deleteDraftById(activeTab.draftId);
 
-    startTransition(() => {
-      setSource(templateSource);
-      setDocumentPath(undefined);
-      setDocumentName(DEFAULT_DOCUMENT_NAME);
-      setDirty(true);
-      setLastSavedAt(undefined);
-      setStatusMessage(`Loaded the ${label} template into the editor.`);
+    replaceActiveTab({
+      ...activeTab,
+      dirty: true,
+      documentName: DEFAULT_DOCUMENT_NAME,
+      documentPath: undefined,
+      draftSavedAt: undefined,
+      lastSavedAt: undefined,
+      source: templateSource
     });
+
+    setStatusMessage(`Loaded the ${label} template into the active tab.`);
   }
 
   const handleAppCommand = useEffectEvent(async (command: AppCommand) => {
     switch (command) {
+      case "closeTab":
+        await handleCloseTab();
+        return;
       case "new":
-        await handleNewDocument();
+        await handleNewTab();
         return;
       case "open":
-        await handleOpenDocument();
+        await handleOpenDocuments();
         return;
       case "save":
         await handleSaveDocument(false);
@@ -751,11 +918,15 @@ function App() {
     }
   });
 
+  const handleIncomingDocument = useEffectEvent((incomingDocument: DocumentPayload) => {
+    appendDocumentsToTabs([incomingDocument], "external");
+  });
+
   useEffect(() => {
     let disposed = false;
 
     const unsubscribeOpen = window.mermaidTool.onOpenDocument((incomingDocument) => {
-      void handleIncomingDocument(incomingDocument, { preserveDraft: false, silent: false });
+      handleIncomingDocument(incomingDocument);
     });
 
     const unsubscribeCommand = window.mermaidTool.onCommand((command) => {
@@ -764,10 +935,10 @@ function App() {
 
     void (async () => {
       try {
-        const [version, incomingDocument, recoveredDraft] = await Promise.all([
+        const [version, launchDocuments, recoveredDrafts] = await Promise.all([
           window.mermaidTool.getAppVersion(),
-          window.mermaidTool.getLaunchDocument(),
-          window.mermaidTool.getRecoveredDraft()
+          window.mermaidTool.getLaunchDocuments(),
+          window.mermaidTool.getRecoveredDrafts()
         ]);
 
         if (disposed) {
@@ -776,14 +947,34 @@ function App() {
 
         setAppVersion(version);
 
-        if (incomingDocument) {
-          await handleIncomingDocument(incomingDocument, { preserveDraft: true, silent: true });
+        const recoveredTabs = recoveredDrafts.map((draft) => createTabFromDraft(draft));
+        const launchTabs = launchDocuments.map((document) => createTabFromDocument(document));
+        const startupTabs = [...recoveredTabs];
+
+        for (const launchTab of launchTabs) {
+          const existingDraftTab = startupTabs.find((tab) => tab.documentPath === launchTab.documentPath);
+          if (!existingDraftTab) {
+            startupTabs.push(launchTab);
+          }
+        }
+
+        if (startupTabs.length === 0) {
           return;
         }
 
-        if (recoveredDraft) {
-          restoreRecoveredDraft(recoveredDraft);
-        }
+        const lastLaunchTab = launchTabs.at(-1);
+        const nextActiveTab = lastLaunchTab
+          ? startupTabs.find((tab) => tab.documentPath === lastLaunchTab.documentPath) ?? startupTabs[0]
+          : startupTabs[0];
+
+        setWorkspace(startupTabs, nextActiveTab.id);
+        setStatusMessage(
+          recoveredTabs.length > 0 && launchTabs.length > 0
+            ? `Recovered ${recoveredTabs.length} draft tabs and opened ${launchTabs.length} launch file${launchTabs.length === 1 ? "" : "s"}.`
+            : recoveredTabs.length > 0
+              ? `Recovered ${recoveredTabs.length} draft tab${recoveredTabs.length === 1 ? "" : "s"}.`
+              : `Opened ${launchTabs.length} launch file${launchTabs.length === 1 ? "" : "s"}.`
+        );
       } catch (error) {
         if (!disposed) {
           setStatusMessage(`Startup recovery failed: ${formatErrorMessage(error)}`);
@@ -853,10 +1044,13 @@ function App() {
         </div>
 
         <div className="toolbar">
-          <button className="button button-quiet" onClick={() => void handleNewDocument()}>
-            New
+          <button className="button button-quiet" onClick={() => void handleNewTab()}>
+            New Tab
           </button>
-          <button className="button button-quiet" onClick={() => void handleOpenDocument()}>
+          <button className="button button-quiet" onClick={() => void handleNewWindow()}>
+            New Window
+          </button>
+          <button className="button button-quiet" onClick={() => void handleOpenDocuments()}>
             Open
           </button>
           <button className="button button-primary" onClick={() => void handleSaveDocument(false)}>
@@ -867,17 +1061,20 @@ function App() {
           </button>
           <button
             className="button button-quiet"
-            disabled={!source}
+            disabled={!activeTab.source}
             onClick={() => void handleWipeDocument()}
           >
             Wipe
           </button>
           <button
             className="button button-danger"
-            disabled={!documentPath}
+            disabled={!activeTab.documentPath}
             onClick={() => void handleDeleteDocument()}
           >
             Delete File
+          </button>
+          <button className="button button-quiet" onClick={() => void handleCloseTab()}>
+            Close Tab
           </button>
           <button
             className="button button-quiet"
@@ -898,7 +1095,15 @@ function App() {
         <div className="toolbar toolbar-right">
           <label className="field">
             Theme
-            <select value={theme} onChange={(event) => setTheme(event.target.value as MermaidThemeName)}>
+            <select
+              value={activeTab.theme}
+              onChange={(event) => {
+                updateTab(activeTab.id, (currentTab) => ({
+                  ...currentTab,
+                  theme: event.target.value as MermaidThemeName
+                }));
+              }}
+            >
               {THEME_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -925,13 +1130,49 @@ function App() {
         </div>
       </header>
 
+      <section className="tabbar">
+        <div className="tabstrip">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`tabchip ${tab.id === activeTab.id ? "tabchip-active" : ""}`}
+            >
+              <button
+                className="tabchip-main"
+                onClick={() => void handleSelectTab(tab.id)}
+              >
+                <span className="tabchip-title">
+                  {tab.documentName}
+                  {tab.dirty ? " *" : ""}
+                </span>
+                <span className="tabchip-subtitle">{tab.documentPath ?? "Unsaved draft"}</span>
+              </button>
+              <button
+                aria-label={`Close ${tab.documentName}`}
+                className="tabchip-close"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleCloseTab(tab.id);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button className="tabchip tabchip-add" onClick={() => void handleNewTab()}>
+            + New Tab
+          </button>
+        </div>
+      </section>
+
       <main className="workspace">
         <aside className="panel sidebar">
           <section className="sidebar-section">
             <p className="eyebrow">Start Fast</p>
             <h2>Starter diagrams</h2>
             <p className="muted">
-              Pick a working example, tweak the text, then export a clean image without touching the web.
+              Open several Mermaid files at once, jump between tabs, and keep a second window nearby
+              for comparison or cleanup work.
             </p>
           </section>
 
@@ -951,10 +1192,10 @@ function App() {
           <section className="sidebar-section tips">
             <p className="eyebrow">Helpful flow</p>
             <ul>
-              <li>Open or start a `.mmd` file locally.</li>
-              <li>Edit the Mermaid text in plain language on the center panel.</li>
-              <li>Watch the right panel update automatically.</li>
-              <li>Your in-progress draft autosaves locally while you work.</li>
+              <li>Open several `.mmd`, `.mermaid`, `.md`, or `.txt` files into tabs.</li>
+              <li>Use `New Window` when you want separate workspaces side by side.</li>
+              <li>Each tab keeps its own save state, draft autosave, and theme.</li>
+              <li>Watch the active tab preview update automatically on the right.</li>
               <li>Export SVG for crisp docs or PNG for slides and chat.</li>
             </ul>
           </section>
@@ -964,10 +1205,12 @@ function App() {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Editor</p>
-              <h2>{documentName}</h2>
+              <h2>{activeTab.documentName}</h2>
             </div>
             <div className="panel-badge">
-              {dirty ? (draftSavedAt ? "Draft protected" : "Unsaved changes") : "Saved state"}
+              {activeTab.dirty
+                ? (activeTab.draftSavedAt ? "Draft protected" : "Unsaved changes")
+                : "Saved state"}
             </div>
           </div>
 
@@ -977,8 +1220,11 @@ function App() {
               height="100%"
               language="markdown"
               onChange={(value) => {
-                setSource(value ?? "");
-                setDirty(true);
+                updateTab(activeTab.id, (currentTab) => ({
+                  ...currentTab,
+                  dirty: true,
+                  source: value ?? ""
+                }));
               }}
               options={{
                 automaticLayout: true,
@@ -990,8 +1236,9 @@ function App() {
                 scrollBeyondLastLine: false,
                 wordWrap: "on"
               }}
+              path={getMonacoModelPath(activeTab)}
               theme="vs"
-              value={source}
+              value={activeTab.source}
             />
           </div>
         </section>
@@ -1036,13 +1283,20 @@ function App() {
 
       <footer className="statusbar">
         <span>{statusMessage}</span>
-        <span>{documentPath ?? "Unsaved local draft"}</span>
+        <span>{activeTab.documentPath ?? "Unsaved local draft"}</span>
+        <span>{tabs.length} tabs open</span>
         <span>{lineCount} lines</span>
-        <span>{lastSavedAt ? `Saved at ${lastSavedAt}` : dirty ? "Not saved yet" : "Saved state"}</span>
         <span>
-          {draftSavedAt
-            ? `Draft autosaved at ${draftSavedAt}`
-            : dirty
+          {activeTab.lastSavedAt
+            ? `Saved at ${activeTab.lastSavedAt}`
+            : activeTab.dirty
+              ? "Not saved yet"
+              : "Saved state"}
+        </span>
+        <span>
+          {activeTab.draftSavedAt
+            ? `Draft autosaved at ${activeTab.draftSavedAt}`
+            : activeTab.dirty
               ? "Draft autosave pending"
               : "No recovery draft queued"}
         </span>
@@ -1054,7 +1308,7 @@ function App() {
           <div className="preview-focus-toolbar">
             <div>
               <p className="eyebrow">Presentation View</p>
-              <h2>{documentName}</h2>
+              <h2>{activeTab.documentName}</h2>
             </div>
             <div className="preview-focus-actions">
               <button

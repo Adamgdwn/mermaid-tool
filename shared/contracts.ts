@@ -1,5 +1,6 @@
 export type MermaidThemeName = "default" | "neutral" | "forest" | "dark" | "base";
 export type AppCommand =
+  | "closeTab"
   | "deleteFile"
   | "exportPng"
   | "exportSvg"
@@ -17,6 +18,7 @@ export interface DocumentPayload {
 
 export interface DraftPayload {
   content: string;
+  draftId: string;
   documentName: string;
   documentPath?: string;
   theme: MermaidThemeName;
