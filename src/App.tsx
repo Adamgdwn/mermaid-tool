@@ -15,6 +15,7 @@ import { TEMPLATE_LIBRARY } from "./lib/templates";
 
 const THEME_OPTIONS: MermaidThemeName[] = ["default", "neutral", "forest", "dark", "base"];
 const INITIAL_TEMPLATE = TEMPLATE_LIBRARY[0];
+const BLANK_DOCUMENT_SOURCE = "";
 
 function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -264,12 +265,12 @@ function App() {
     }
 
     startTransition(() => {
-      setSource(INITIAL_TEMPLATE.source);
+      setSource(BLANK_DOCUMENT_SOURCE);
       setDocumentPath(undefined);
       setDocumentName(DEFAULT_DOCUMENT_NAME);
       setDirty(false);
       setLastSavedAt(undefined);
-      setStatusMessage("Started a fresh diagram from the built-in starter.");
+      setStatusMessage("Started a blank untitled Mermaid document.");
     });
   }
 
