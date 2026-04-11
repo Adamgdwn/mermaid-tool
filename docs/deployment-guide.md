@@ -18,8 +18,8 @@ This project is a local desktop app, so deployment means preparing a machine to 
 6. Run `npm run package:linux` to generate distributables in `release/`.
 7. Install with either:
    - `npm run install:desktop` for the local source checkout flow
-   - `sudo dpkg -i "release/Mermaid Tool-0.1.6-amd64.deb"` for a system package
-   - `chmod +x "release/Mermaid Tool-0.1.6-x86_64.AppImage"` and launch the AppImage directly
+   - `sudo dpkg -i "release/Mermaid Tool-0.1.7-amd64.deb"` for a system package
+   - `chmod +x "release/Mermaid Tool-0.1.7-x86_64.AppImage"` and launch the AppImage directly
 8. Launch `Mermaid Tool` from the applications menu, the installed package, the AppImage, or `bin/launch-mermaid-tool.sh`.
 
 ## Rollback
@@ -42,7 +42,7 @@ This project is a local desktop app, so deployment means preparing a machine to 
 - open the preview in fullscreen and confirm `Escape` returns to the normal layout
 - right-drag the preview canvas and confirm large diagrams pan smoothly
 - scroll over the preview canvas and confirm zoom follows the cursor in normal and fullscreen modes
-- use `Fit` and confirm large diagrams snap into a readable whole-diagram view
+- use `Fit Width` and `Whole` and confirm large diagrams can be reviewed both as a readable document and as a full-map overview
 - export both SVG and PNG successfully
 - confirm the desktop launcher opens the app from the menu
 - confirm `.mmd` and `.mermaid` open in Mermaid Tool after installation

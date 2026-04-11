@@ -308,19 +308,14 @@ function App() {
       const computedStyle = window.getComputedStyle(activeCanvas);
       const horizontalPadding = Number.parseFloat(computedStyle.paddingLeft)
         + Number.parseFloat(computedStyle.paddingRight);
-      const verticalPadding = Number.parseFloat(computedStyle.paddingTop)
-        + Number.parseFloat(computedStyle.paddingBottom);
       const availableWidth = Math.max(1, activeCanvas.clientWidth - horizontalPadding);
-      const availableHeight = Math.max(1, activeCanvas.clientHeight - verticalPadding);
-      const fittedZoom = clampZoom(
-        Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
-      );
+      const fittedZoom = clampZoom(availableWidth / svgSize.width);
 
       setZoom(fittedZoom);
       activeCanvas.scrollLeft = 0;
       activeCanvas.scrollTop = 0;
       setStatusMessage(
-        `Fitted the full diagram into presentation view at ${Math.round(fittedZoom * 100)}%.`
+        `Opened presentation view in fit-width mode at ${Math.round(fittedZoom * 100)}%.`
       );
     });
   }, [isPreviewFullscreen, svgSize]);
@@ -468,7 +463,8 @@ function App() {
 
   function fitPreviewToCanvas(
     canvas: HTMLDivElement,
-    mode: "fullscreen" | "preview" = "preview"
+    mode: "fullscreen" | "preview" = "preview",
+    strategy: "whole" | "width" = "width"
   ): void {
     if (!svgSize) {
       return;
@@ -482,7 +478,9 @@ function App() {
     const availableWidth = Math.max(1, canvas.clientWidth - horizontalPadding);
     const availableHeight = Math.max(1, canvas.clientHeight - verticalPadding);
     const fittedZoom = clampZoom(
-      Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
+      strategy === "whole"
+        ? Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
+        : availableWidth / svgSize.width
     );
 
     setZoom(fittedZoom);
@@ -492,8 +490,12 @@ function App() {
     });
     setStatusMessage(
       mode === "fullscreen"
-        ? `Fitted the full diagram into presentation view at ${Math.round(fittedZoom * 100)}%.`
-        : `Fitted the diagram into the preview at ${Math.round(fittedZoom * 100)}%.`
+        ? strategy === "whole"
+          ? `Fitted the whole diagram into presentation view at ${Math.round(fittedZoom * 100)}%.`
+          : `Fitted the diagram width into presentation view at ${Math.round(fittedZoom * 100)}%.`
+        : strategy === "whole"
+          ? `Fitted the whole diagram into the preview at ${Math.round(fittedZoom * 100)}%.`
+          : `Fitted the diagram width into the preview at ${Math.round(fittedZoom * 100)}%.`
     );
   }
 
@@ -583,7 +585,10 @@ function App() {
     }
   }
 
-  function handleFitPreview(mode: "fullscreen" | "preview"): void {
+  function handleFitPreview(
+    mode: "fullscreen" | "preview",
+    strategy: "whole" | "width" = "width"
+  ): void {
     const activeCanvas = mode === "fullscreen"
       ? previewFocusCanvasRef.current
       : previewCanvasRef.current;
@@ -592,7 +597,7 @@ function App() {
       return;
     }
 
-    fitPreviewToCanvas(activeCanvas, mode);
+    fitPreviewToCanvas(activeCanvas, mode, strategy);
   }
 
   async function handleNewDocument(): Promise<void> {
@@ -975,9 +980,16 @@ function App() {
               <button
                 className="button button-quiet"
                 disabled={!svgMarkup || !!renderError}
-                onClick={() => handleFitPreview("preview")}
+                onClick={() => handleFitPreview("preview", "width")}
               >
-                Fit
+                Fit Width
+              </button>
+              <button
+                className="button button-quiet"
+                disabled={!svgMarkup || !!renderError}
+                onClick={() => handleFitPreview("preview", "whole")}
+              >
+                Whole
               </button>
               <button
                 className="button button-quiet"
@@ -1022,9 +1034,16 @@ function App() {
               <button
                 className="button button-quiet"
                 disabled={!svgMarkup || !!renderError}
-                onClick={() => handleFitPreview("fullscreen")}
+                onClick={() => handleFitPreview("fullscreen", "width")}
               >
-                Fit
+                Fit Width
+              </button>
+              <button
+                className="button button-quiet"
+                disabled={!svgMarkup || !!renderError}
+                onClick={() => handleFitPreview("fullscreen", "whole")}
+              >
+                Whole
               </button>
               <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
                 {renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}

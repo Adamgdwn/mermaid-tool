@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.7 - 2026-04-11
+
+- changed fullscreen entry to open in fit-width mode so large diagrams feel readable instead of poster-sized
+- split preview fitting into `Fit Width` and `Whole` so users can choose between reading and overview modes
+
 ## 0.1.6 - 2026-04-11
 
 - replaced transform-based preview zoom with true SVG resizing so the canvas scroll area matches the visible diagram
