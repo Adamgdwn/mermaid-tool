@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.6 - 2026-04-11
+
+- replaced transform-based preview zoom with true SVG resizing so the canvas scroll area matches the visible diagram
+- added fit-to-view controls and a deeper zoom-out range for large diagrams in preview and fullscreen mode
+
 ## 0.1.5 - 2026-04-11
 
 - added wheel-based zoom directly on the preview canvas in both normal and fullscreen modes

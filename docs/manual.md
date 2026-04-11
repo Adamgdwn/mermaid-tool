@@ -33,6 +33,7 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 - `Full Screen` on the preview panel opens a presentation-style view and supports `Escape` to return.
 - Right-click and drag on the preview to grab the canvas and pan around larger diagrams.
 - Scroll directly over the preview canvas to zoom in or out around the cursor position.
+- `Fit` rescales the preview so large diagrams are readable without hunting for a tiny manual zoom level.
 - Built-in templates are meant as onboarding shortcuts, not authoritative Mermaid examples for every syntax feature.
 - Export works best after the preview is green and rendering successfully.
 - `npm run install:desktop` registers `.mmd` and `.mermaid` locally through the desktop database and MIME database.

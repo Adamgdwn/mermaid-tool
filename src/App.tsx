@@ -31,12 +31,18 @@ import { TEMPLATE_LIBRARY } from "./lib/templates";
 const THEME_OPTIONS: MermaidThemeName[] = ["default", "neutral", "forest", "dark", "base"];
 const INITIAL_TEMPLATE = TEMPLATE_LIBRARY[0];
 const BLANK_DOCUMENT_SOURCE = "";
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 5;
 type PreviewPanSession = {
   element: HTMLDivElement;
   originClientX: number;
   originClientY: number;
   originScrollLeft: number;
   originScrollTop: number;
+};
+type SvgSize = {
+  height: number;
+  width: number;
 };
 
 function formatErrorMessage(error: unknown): string {
@@ -52,6 +58,46 @@ function formatClockTime(timestamp: string): string {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+function clampZoom(candidateZoom: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(candidateZoom.toFixed(2))));
+}
+
+function getSvgSize(svgMarkup: string): SvgSize | null {
+  if (!svgMarkup) {
+    return null;
+  }
+
+  try {
+    const parsed = new DOMParser().parseFromString(svgMarkup, "image/svg+xml");
+    const svgElement = parsed.querySelector("svg");
+    if (!svgElement) {
+      return null;
+    }
+
+    const viewBox = svgElement.getAttribute("viewBox");
+    if (viewBox) {
+      const viewBoxParts = viewBox.split(/\s+/).map((value) => Number(value));
+      if (viewBoxParts.length === 4 && viewBoxParts.every((value) => Number.isFinite(value))) {
+        const width = viewBoxParts[2];
+        const height = viewBoxParts[3];
+        if (width > 0 && height > 0) {
+          return { width, height };
+        }
+      }
+    }
+
+    const width = Number.parseFloat(svgElement.getAttribute("width") ?? "");
+    const height = Number.parseFloat(svgElement.getAttribute("height") ?? "");
+    if (width > 0 && height > 0) {
+      return { width, height };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function App() {
@@ -71,7 +117,10 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isPanningPreview, setIsPanningPreview] = useState(false);
+  const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
   const previewPanSessionRef = useRef<PreviewPanSession | null>(null);
+  const previewCanvasRef = useRef<HTMLDivElement | null>(null);
+  const previewFocusCanvasRef = useRef<HTMLDivElement | null>(null);
 
   const deferredSource = useDeferredValue(source);
   const lineCount = countLines(source);
@@ -80,6 +129,7 @@ function App() {
   useEffect(() => {
     if (!deferredSource.trim()) {
       setSvgMarkup("");
+      setSvgSize(null);
       setRenderError("Add Mermaid syntax on the left to see a live preview here.");
       setIsRendering(false);
       return;
@@ -113,12 +163,14 @@ function App() {
           }
 
           setSvgMarkup(renderResult.svg);
+          setSvgSize(getSvgSize(renderResult.svg));
           setRenderError("");
         } catch (error) {
           if (!stillCurrent) {
             return;
           }
 
+          setSvgSize(null);
           setRenderError(formatErrorMessage(error));
         } finally {
           if (stillCurrent) {
@@ -241,6 +293,37 @@ function App() {
       window.clearTimeout(timeoutId);
     };
   }, [dirty, documentName, documentPath, source, theme]);
+
+  useEffect(() => {
+    if (!svgSize || !isPreviewFullscreen) {
+      return;
+    }
+
+    const activeCanvas = previewFocusCanvasRef.current;
+    if (!activeCanvas) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const computedStyle = window.getComputedStyle(activeCanvas);
+      const horizontalPadding = Number.parseFloat(computedStyle.paddingLeft)
+        + Number.parseFloat(computedStyle.paddingRight);
+      const verticalPadding = Number.parseFloat(computedStyle.paddingTop)
+        + Number.parseFloat(computedStyle.paddingBottom);
+      const availableWidth = Math.max(1, activeCanvas.clientWidth - horizontalPadding);
+      const availableHeight = Math.max(1, activeCanvas.clientHeight - verticalPadding);
+      const fittedZoom = clampZoom(
+        Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
+      );
+
+      setZoom(fittedZoom);
+      activeCanvas.scrollLeft = 0;
+      activeCanvas.scrollTop = 0;
+      setStatusMessage(
+        `Fitted the full diagram into presentation view at ${Math.round(fittedZoom * 100)}%.`
+      );
+    });
+  }, [isPreviewFullscreen, svgSize]);
 
   async function clearDraftState(): Promise<void> {
     try {
@@ -383,8 +466,39 @@ function App() {
     }
   }
 
+  function fitPreviewToCanvas(
+    canvas: HTMLDivElement,
+    mode: "fullscreen" | "preview" = "preview"
+  ): void {
+    if (!svgSize) {
+      return;
+    }
+
+    const computedStyle = window.getComputedStyle(canvas);
+    const horizontalPadding = Number.parseFloat(computedStyle.paddingLeft)
+      + Number.parseFloat(computedStyle.paddingRight);
+    const verticalPadding = Number.parseFloat(computedStyle.paddingTop)
+      + Number.parseFloat(computedStyle.paddingBottom);
+    const availableWidth = Math.max(1, canvas.clientWidth - horizontalPadding);
+    const availableHeight = Math.max(1, canvas.clientHeight - verticalPadding);
+    const fittedZoom = clampZoom(
+      Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
+    );
+
+    setZoom(fittedZoom);
+    window.requestAnimationFrame(() => {
+      canvas.scrollLeft = 0;
+      canvas.scrollTop = 0;
+    });
+    setStatusMessage(
+      mode === "fullscreen"
+        ? `Fitted the full diagram into presentation view at ${Math.round(fittedZoom * 100)}%.`
+        : `Fitted the diagram into the preview at ${Math.round(fittedZoom * 100)}%.`
+    );
+  }
+
   function handlePreviewWheel(event: ReactWheelEvent<HTMLDivElement>): void {
-    if (renderError) {
+    if (renderError || !svgSize) {
       return;
     }
 
@@ -394,8 +508,8 @@ function App() {
     const rect = canvas.getBoundingClientRect();
     const cursorOffsetX = event.clientX - rect.left;
     const cursorOffsetY = event.clientY - rect.top;
-    const zoomDelta = event.deltaY < 0 ? 0.12 : -0.12;
-    const nextZoom = Math.min(3.5, Math.max(0.35, Number((zoom + zoomDelta).toFixed(2))));
+    const zoomFactor = event.deltaY < 0 ? 1.12 : 0.88;
+    const nextZoom = clampZoom(zoom * zoomFactor);
 
     if (nextZoom === zoom) {
       return;
@@ -467,6 +581,18 @@ function App() {
     } catch {
       setStatusMessage("Preview expanded inside the app. Press Escape to return.");
     }
+  }
+
+  function handleFitPreview(mode: "fullscreen" | "preview"): void {
+    const activeCanvas = mode === "fullscreen"
+      ? previewFocusCanvasRef.current
+      : previewCanvasRef.current;
+
+    if (!activeCanvas) {
+      return;
+    }
+
+    fitPreviewToCanvas(activeCanvas, mode);
   }
 
   async function handleNewDocument(): Promise<void> {
@@ -661,12 +787,22 @@ function App() {
         onContextMenu={handlePreviewContextMenu}
         onMouseDown={handlePreviewMouseDown}
         onWheel={handlePreviewWheel}
+        ref={inFocusMode ? previewFocusCanvasRef : previewCanvasRef}
       >
-        <div
-          className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}
-          style={{ transform: `scale(${zoom})` }}
-          dangerouslySetInnerHTML={{ __html: svgMarkup }}
-        />
+        <div className="preview-stage-frame">
+          <div
+            className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}
+            style={
+              svgSize
+                ? {
+                    height: `${svgSize.height * zoom}px`,
+                    width: `${svgSize.width * zoom}px`
+                  }
+                : undefined
+            }
+            dangerouslySetInnerHTML={{ __html: svgMarkup }}
+          />
+        </div>
       </div>
     );
   }
@@ -743,14 +879,14 @@ function App() {
           <div className="zoom-control">
             <button
               className="button button-quiet button-square"
-              onClick={() => setZoom((currentZoom) => Math.max(0.5, currentZoom - 0.1))}
+              onClick={() => setZoom((currentZoom) => clampZoom(currentZoom - 0.1))}
             >
               -
             </button>
             <span>{Math.round(zoom * 100)}%</span>
             <button
               className="button button-quiet button-square"
-              onClick={() => setZoom((currentZoom) => Math.min(2.5, currentZoom + 0.1))}
+              onClick={() => setZoom((currentZoom) => clampZoom(currentZoom + 0.1))}
             >
               +
             </button>
@@ -839,6 +975,13 @@ function App() {
               <button
                 className="button button-quiet"
                 disabled={!svgMarkup || !!renderError}
+                onClick={() => handleFitPreview("preview")}
+              >
+                Fit
+              </button>
+              <button
+                className="button button-quiet"
+                disabled={!svgMarkup || !!renderError}
                 onClick={() => void handlePreviewFullscreenToggle()}
               >
                 Full Screen
@@ -876,6 +1019,13 @@ function App() {
               <h2>{documentName}</h2>
             </div>
             <div className="preview-focus-actions">
+              <button
+                className="button button-quiet"
+                disabled={!svgMarkup || !!renderError}
+                onClick={() => handleFitPreview("fullscreen")}
+              >
+                Fit
+              </button>
               <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
                 {renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}
               </div>

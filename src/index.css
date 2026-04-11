@@ -348,6 +348,7 @@ select {
   overflow: auto;
   padding: 2rem;
   cursor: grab;
+  overscroll-behavior: contain;
   user-select: none;
   background:
     linear-gradient(90deg, rgba(21, 48, 66, 0.03) 1px, transparent 1px),
@@ -368,18 +369,26 @@ select {
     linear-gradient(180deg, #0f1f2e 0%, #12283a 100%);
 }
 
+.preview-stage-frame {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-width: 100%;
+  min-height: 100%;
+}
+
 .preview-stage {
-  width: max-content;
-  transform-origin: top left;
+  flex: none;
 }
 
 .preview-stage-focus {
-  margin: 0 auto;
+  margin: 0;
 }
 
 .preview-stage svg {
   display: block;
-  max-width: none;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
@@ -432,6 +441,7 @@ select {
   min-height: 0;
   border-radius: 1.6rem;
   overflow: hidden;
+  overscroll-behavior: contain;
   background: rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }

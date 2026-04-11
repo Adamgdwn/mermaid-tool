@@ -8,7 +8,7 @@ Mermaid Tool is a local-first Electron desktop application. The main process han
 
 - `electron/main.ts`: creates the desktop window, exposes file open/save/delete/export handlers, routes launch-time file opening, stores the session draft in Electron user data, and brokers dirty-window close confirmation.
 - `electron/preload.ts`: safely bridges IPC methods into the renderer through `window.mermaidTool`.
-- `src/App.tsx`: application shell, editing workflow, preview, wheel zoom and right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
+- `src/App.tsx`: application shell, editing workflow, preview, true SVG scaling, fit-to-view controls, wheel zoom, right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
 - `src/lib/document.ts`: document naming, diagram detection, and export filename helpers.
 - `src/lib/export.ts`: SVG-to-PNG conversion using `canvg`.
 - `src/lib/templates.ts`: built-in starter diagrams for amateur-friendly onboarding.
