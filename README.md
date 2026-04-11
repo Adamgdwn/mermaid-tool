@@ -32,8 +32,8 @@ It is built for amateur-friendly local use:
 - Build distributables with `npm run package:linux`
 - Output artifacts are written to `release/`
 - Current targets:
-  - `release/Mermaid Tool-0.1.0-x86_64.AppImage`
-  - `release/Mermaid Tool-0.1.0-amd64.deb`
+  - `release/Mermaid Tool-0.1.1-x86_64.AppImage`
+  - `release/Mermaid Tool-0.1.1-amd64.deb`
 
 ## File Associations
 

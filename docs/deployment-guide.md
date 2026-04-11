@@ -18,8 +18,8 @@ This project is a local desktop app, so deployment means preparing a machine to 
 6. Run `npm run package:linux` to generate distributables in `release/`.
 7. Install with either:
    - `npm run install:desktop` for the local source checkout flow
-   - `sudo dpkg -i "release/Mermaid Tool-0.1.0-amd64.deb"` for a system package
-   - `chmod +x "release/Mermaid Tool-0.1.0-x86_64.AppImage"` and launch the AppImage directly
+   - `sudo dpkg -i "release/Mermaid Tool-0.1.1-amd64.deb"` for a system package
+   - `chmod +x "release/Mermaid Tool-0.1.1-x86_64.AppImage"` and launch the AppImage directly
 8. Launch `Mermaid Tool` from the applications menu, the installed package, the AppImage, or `bin/launch-mermaid-tool.sh`.
 
 ## Rollback
