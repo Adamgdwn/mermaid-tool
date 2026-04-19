@@ -3,6 +3,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type {
+  AssistantRequest,
   AppCommand,
   DraftPayload,
   DocumentPayload,
@@ -10,6 +11,10 @@ import type {
   SaveDocumentRequest,
   SaveResult
 } from "../shared/contracts";
+import {
+  generateAssistantReply,
+  getAssistantRuntimeState
+} from "./local-models";
 
 const APP_NAME = "Mermaid Tool";
 const TEXT_FILE_FILTERS = [
@@ -396,6 +401,14 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("app:getVersion", () => app.getVersion());
+
+ipcMain.handle("assistant:getRuntimeState", async () => {
+  return getAssistantRuntimeState();
+});
+
+ipcMain.handle("assistant:generateReply", async (_event, request: AssistantRequest) => {
+  return generateAssistantReply(request);
+});
 
 ipcMain.handle("window:new", async () => {
   await createWindow();

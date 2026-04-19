@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.2.3 - 2026-04-19
+
+- changed the assistant sidebar so the dialogue collapses upward inside the existing left column while the diagram picker remains visible
+- moved the assistant transcript and prompt composer to the top of the expanded dialogue area
+- simplified the local desktop integration back to one `mermaid-tool.desktop` launcher and refreshed the docs around deployment, recovery, and roadmap ideas
+
+## 0.2.2 - 2026-04-18
+
+- added a collapsible left-edge AI builder rail so users can guide Mermaid diagrams through natural-language conversation
+- expanded local-model discovery and chat wiring to auto-detect Ollama, LM Studio, and other OpenAI-compatible localhost runtimes
+- added node detection and node-focused prompting so the guided builder can target specific parts of the active diagram
+- made the repo launcher rebuild automatically when local source files are newer than the built app and moved the local desktop install back to a single `mermaid-tool.desktop` override so the repo checkout does not publish a second launcher
+
 ## 0.2.1 - 2026-04-11
 
 - made the `Open` dialog start in the same draft/save folder used by unsaved `Save As`

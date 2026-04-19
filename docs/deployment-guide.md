@@ -21,6 +21,10 @@ This project is a local desktop app, so deployment means preparing a machine to 
    - `sudo dpkg -i "release/Mermaid Tool-0.2.1-amd64.deb"` for a system package
    - `chmod +x "release/Mermaid Tool-0.2.1-x86_64.AppImage"` and launch the AppImage directly
 8. Launch `Mermaid Tool` from the applications menu, the installed package, the AppImage, or `bin/launch-mermaid-tool.sh`.
+9. If you want the AI builder, start at least one supported local runtime before smoke testing:
+   - Ollama on `http://127.0.0.1:11434`
+   - LM Studio on `http://127.0.0.1:1234/v1`
+   - `llama.cpp` or another OpenAI-compatible local server on a reachable `/v1` endpoint
 
 ## Rollback
 
@@ -48,6 +52,9 @@ This project is a local desktop app, so deployment means preparing a machine to 
 - use `Fit Width` and `Whole` and confirm large diagrams can be reviewed both as a readable document and as a full-map overview
 - export both SVG and PNG successfully
 - confirm the desktop launcher opens the app from the menu
+- confirm only one Mermaid Tool launcher is shown when the local desktop entry overrides the packaged app
 - confirm `.mmd` and `.mermaid` open in Mermaid Tool after installation
 - confirm dirty tabs recover after relaunch
+- confirm the AI builder can discover at least one supported local runtime when one is running
+- confirm the AI dialogue collapses upward while starter diagram cards remain visible in the sidebar
 - confirm the AppImage launches and the `.deb` installs cleanly

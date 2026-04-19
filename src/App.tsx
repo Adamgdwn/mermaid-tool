@@ -6,16 +6,25 @@ import {
   useEffectEvent,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type WheelEvent as ReactWheelEvent
 } from "react";
 import type {
+  AssistantChatMessage,
+  AssistantRuntimeState,
   AppCommand,
   DocumentPayload,
   DraftPayload,
   MermaidThemeName
 } from "../shared/contracts";
+import {
+  buildAssistantPlaceholder,
+  buildAssistantWelcome,
+  extractDiagramNodes,
+  normalizeMermaidSource
+} from "./lib/assistant";
 import {
   DEFAULT_DOCUMENT_NAME,
   buildExportFileName,
@@ -42,6 +51,12 @@ const FLOWCHART_LAYOUT = {
   useMaxWidth: false,
   wrappingWidth: 200
 };
+const EMPTY_RUNTIME_STATE: AssistantRuntimeState = {
+  models: [],
+  runtimes: [],
+  setupTips: [],
+  statusMessage: "Looking for local AI runtimes..."
+};
 
 type PreviewPanSession = {
   element: HTMLDivElement;
@@ -57,6 +72,9 @@ type SvgSize = {
 };
 
 type WorkspaceTab = {
+  assistantDraftSource?: string;
+  assistantMessages: AssistantChatMessage[];
+  assistantSuggestedTitle?: string;
   documentName: string;
   documentPath?: string;
   draftId: string;
@@ -64,6 +82,7 @@ type WorkspaceTab = {
   dirty: boolean;
   id: string;
   lastSavedAt?: string;
+  selectedNodeId?: string;
   source: string;
   theme: MermaidThemeName;
 };
@@ -125,6 +144,7 @@ function getSvgSize(svgMarkup: string): SvgSize | null {
 
 function createWorkspaceTab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab {
   return {
+    assistantMessages: [],
     documentName: DEFAULT_DOCUMENT_NAME,
     draftId: crypto.randomUUID(),
     dirty: false,
@@ -137,6 +157,12 @@ function createWorkspaceTab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab
 
 function createStartupTab(): WorkspaceTab {
   return createWorkspaceTab({
+    assistantMessages: [
+      {
+        role: "assistant",
+        content: buildAssistantWelcome(INITIAL_TEMPLATE.label, detectDiagramType(INITIAL_TEMPLATE.source))
+      }
+    ],
     source: INITIAL_TEMPLATE.source
   });
 }
@@ -184,6 +210,15 @@ function App() {
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isPanningPreview, setIsPanningPreview] = useState(false);
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(true);
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantError, setAssistantError] = useState("");
+  const [isAssistantBusy, setIsAssistantBusy] = useState(false);
+  const [isLoadingLocalModels, setIsLoadingLocalModels] = useState(false);
+  const [assistantRuntimeState, setAssistantRuntimeState] = useState<AssistantRuntimeState>(
+    EMPTY_RUNTIME_STATE
+  );
+  const [selectedLocalModelId, setSelectedLocalModelId] = useState("");
 
   const tabsRef = useRef(tabs);
   const activeTabIdRef = useRef(activeTabId);
@@ -196,6 +231,15 @@ function App() {
   const deferredSource = useDeferredValue(activeTab.source);
   const lineCount = countLines(activeTab.source);
   const diagramType = detectDiagramType(activeTab.source);
+  const localModels = assistantRuntimeState.models;
+  const detectedRuntimes = assistantRuntimeState.runtimes;
+  const selectedLocalModel = localModels.find((model) => model.id === selectedLocalModelId);
+  const diagramNodes = extractDiagramNodes(activeTab.source);
+  const selectedDiagramNode = diagramNodes.find((node) => node.id === activeTab.selectedNodeId);
+  const assistantPlaceholder = buildAssistantPlaceholder(diagramType, selectedDiagramNode?.label);
+  const normalizedAssistantDraft = normalizeMermaidSource(activeTab.assistantDraftSource ?? "");
+  const hasAssistantDraft = normalizedAssistantDraft.length > 0
+    && normalizedAssistantDraft !== normalizeMermaidSource(activeTab.source);
   const isWindowDirty = tabs.some((tab) => tab.dirty);
 
   useEffect(() => {
@@ -211,10 +255,42 @@ function App() {
   }, [activeTab]);
 
   useEffect(() => {
+    setAssistantInput("");
+  }, [activeTab.id]);
+
+  useEffect(() => {
+    if (!selectedLocalModelId && localModels[0]) {
+      setSelectedLocalModelId(localModels[0].id);
+      return;
+    }
+
+    if (selectedLocalModelId && !localModels.some((model) => model.id === selectedLocalModelId)) {
+      setSelectedLocalModelId(localModels[0]?.id ?? "");
+    }
+  }, [localModels, selectedLocalModelId]);
+
+  useEffect(() => {
     if (!tabs.some((tab) => tab.id === activeTabId) && tabs[0]) {
       setActiveTabId(tabs[0].id);
     }
   }, [activeTabId, tabs]);
+
+  useEffect(() => {
+    if (!activeTab.selectedNodeId) {
+      return;
+    }
+
+    if (!diagramNodes.some((node) => node.id === activeTab.selectedNodeId)) {
+      setTabs((currentTabs) => currentTabs.map((tab) => (
+        tab.id === activeTab.id
+          ? {
+              ...tab,
+              selectedNodeId: undefined
+            }
+          : tab
+      )));
+    }
+  }, [activeTab.id, activeTab.selectedNodeId, diagramNodes]);
 
   function setWorkspace(nextTabs: WorkspaceTab[], nextActiveTabId: string): void {
     tabsRef.current = nextTabs;
@@ -226,6 +302,31 @@ function App() {
   function updateTab(tabId: string, updater: (tab: WorkspaceTab) => WorkspaceTab): void {
     const nextTabs = tabsRef.current.map((tab) => (tab.id === tabId ? updater(tab) : tab));
     setWorkspace(nextTabs, activeTabIdRef.current);
+  }
+
+  async function refreshLocalModels(
+    options: { setStatusOnError?: boolean } = {}
+  ): Promise<void> {
+    setIsLoadingLocalModels(true);
+    setAssistantError("");
+
+    try {
+      const runtimeState = await window.mermaidTool.getAssistantRuntimeState();
+      setAssistantRuntimeState(runtimeState);
+      setSelectedLocalModelId((currentValue) => currentValue || runtimeState.models[0]?.id || "");
+
+      if (options.setStatusOnError ?? false) {
+        setStatusMessage(runtimeState.statusMessage);
+      }
+    } catch (error) {
+      const message = formatErrorMessage(error);
+      setAssistantError(message);
+      if (options.setStatusOnError ?? false) {
+        setStatusMessage(`AI builder unavailable: ${message}`);
+      }
+    } finally {
+      setIsLoadingLocalModels(false);
+    }
   }
 
   async function deleteDraftById(draftId: string): Promise<void> {
@@ -823,8 +924,11 @@ function App() {
 
     updateTab(activeTab.id, (currentTab) => ({
       ...currentTab,
+      assistantDraftSource: undefined,
+      assistantSuggestedTitle: undefined,
       dirty: true,
       draftSavedAt: undefined,
+      selectedNodeId: undefined,
       source: BLANK_DOCUMENT_SOURCE
     }));
 
@@ -865,8 +969,8 @@ function App() {
     }
   }
 
-  async function handleTemplateSwap(templateSource: string, label: string): Promise<void> {
-    const shouldContinue = await confirmDiscardTab(activeTab, `replace the tab with ${label}`);
+  async function handleTemplateSwap(template: typeof TEMPLATE_LIBRARY[number]): Promise<void> {
+    const shouldContinue = await confirmDiscardTab(activeTab, `replace the tab with ${template.label}`);
     if (!shouldContinue) {
       return;
     }
@@ -875,15 +979,128 @@ function App() {
 
     replaceActiveTab({
       ...activeTab,
+      assistantDraftSource: undefined,
+      assistantMessages: [
+        {
+          role: "assistant",
+          content: buildAssistantWelcome(template.label, detectDiagramType(template.source))
+        }
+      ],
+      assistantSuggestedTitle: undefined,
       dirty: true,
       documentName: DEFAULT_DOCUMENT_NAME,
       documentPath: undefined,
       draftSavedAt: undefined,
       lastSavedAt: undefined,
-      source: templateSource
+      selectedNodeId: undefined,
+      source: template.source
     });
 
-    setStatusMessage(`Loaded the ${label} template into the active tab.`);
+    setIsAssistantOpen(true);
+    setAssistantInput("");
+    setStatusMessage(`Loaded the ${template.label} template and opened the AI builder.`);
+  }
+
+  function handleSelectNode(nodeId?: string): void {
+    updateTab(activeTab.id, (currentTab) => ({
+      ...currentTab,
+      selectedNodeId: nodeId
+    }));
+  }
+
+  function handleApplyAssistantDraft(): void {
+    if (!activeTab.assistantDraftSource || !hasAssistantDraft) {
+      return;
+    }
+
+    updateTab(activeTab.id, (currentTab) => ({
+      ...currentTab,
+      assistantDraftSource: undefined,
+      assistantSuggestedTitle: undefined,
+      dirty: true,
+      documentName: !currentTab.documentPath
+        && currentTab.documentName === DEFAULT_DOCUMENT_NAME
+        && currentTab.assistantSuggestedTitle
+        ? ensureMermaidExtension(currentTab.assistantSuggestedTitle)
+        : currentTab.documentName,
+      draftSavedAt: undefined,
+      source: currentTab.assistantDraftSource ?? currentTab.source
+    }));
+    setStatusMessage("Applied the AI draft into the editor.");
+  }
+
+  async function handleSendAssistantMessage(): Promise<void> {
+    const prompt = assistantInput.trim();
+    if (!prompt) {
+      return;
+    }
+
+    if (!selectedLocalModel) {
+      setAssistantError("Choose a local model first, then send the prompt.");
+      setStatusMessage("The AI builder needs a local model before it can help.");
+      return;
+    }
+
+    const nextHistory: AssistantChatMessage[] = [
+      ...activeTab.assistantMessages,
+      {
+        role: "user",
+        content: prompt
+      }
+    ];
+
+    updateTab(activeTab.id, (currentTab) => ({
+      ...currentTab,
+      assistantMessages: nextHistory
+    }));
+    setAssistantInput("");
+    setAssistantError("");
+    setIsAssistantBusy(true);
+
+    try {
+      const response = await window.mermaidTool.generateAssistantReply({
+        chatHistory: nextHistory,
+        diagramType,
+        model: selectedLocalModel.modelId,
+        runtimeId: selectedLocalModel.runtimeId,
+        selectedNode: selectedDiagramNode
+          ? `${selectedDiagramNode.label} (${selectedDiagramNode.kind})`
+          : undefined,
+        source: activeTab.source
+      });
+
+      updateTab(activeTab.id, (currentTab) => ({
+        ...currentTab,
+        assistantDraftSource: response.updatedSource,
+        assistantMessages: [
+          ...nextHistory,
+          {
+            role: "assistant",
+            content: response.assistantMessage
+          }
+        ],
+        assistantSuggestedTitle: response.suggestedTitle
+      }));
+
+      setStatusMessage(
+        normalizeMermaidSource(response.updatedSource) !== normalizeMermaidSource(activeTab.source)
+          ? `AI drafted an updated ${diagramType.toLowerCase()} using ${response.model}.`
+          : `AI reviewed the current ${diagramType.toLowerCase()} and replied with guidance.`
+      );
+    } catch (error) {
+      const message = formatErrorMessage(error);
+      setAssistantError(message);
+      setStatusMessage(`AI builder failed: ${message}`);
+    } finally {
+      setIsAssistantBusy(false);
+    }
+  }
+
+  function handleAssistantComposerKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void handleSendAssistantMessage();
+    }
   }
 
   const handleAppCommand = useEffectEvent(async (command: AppCommand) => {
@@ -986,6 +1203,37 @@ function App() {
       disposed = true;
       unsubscribeOpen();
       unsubscribeCommand();
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    void (async () => {
+      setIsLoadingLocalModels(true);
+      setAssistantError("");
+
+      try {
+        const runtimeState = await window.mermaidTool.getAssistantRuntimeState();
+        if (disposed) {
+          return;
+        }
+
+        setAssistantRuntimeState(runtimeState);
+        setSelectedLocalModelId((currentValue) => currentValue || runtimeState.models[0]?.id || "");
+      } catch (error) {
+        if (!disposed) {
+          setAssistantError(formatErrorMessage(error));
+        }
+      } finally {
+        if (!disposed) {
+          setIsLoadingLocalModels(false);
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
     };
   }, []);
 
@@ -1167,12 +1415,193 @@ function App() {
 
       <main className="workspace">
         <aside className="panel sidebar">
+          <section className={`assistant-shell ${isAssistantOpen ? "assistant-shell-open" : "assistant-shell-collapsed"}`}>
+            <div className="assistant-shell-header">
+              <div>
+                <p className="eyebrow">Local AI Builder</p>
+                <h2>Build by conversation</h2>
+              </div>
+              <button
+                aria-label={isAssistantOpen ? "Collapse dialogue" : "Open dialogue"}
+                className="button button-primary assistant-shell-toggle"
+                onClick={() => setIsAssistantOpen((currentValue) => !currentValue)}
+              >
+                {isAssistantOpen ? "Collapse" : "Open dialogue"}
+              </button>
+            </div>
+
+            <div className={`assistant-shell-body ${isAssistantOpen ? "assistant-shell-body-open" : ""}`}>
+              <section className="sidebar-section assistant-intro">
+                <p className="muted">
+                  Pick a starter diagram or keep the current tab, then describe the flow in plain
+                  language. The assistant drafts Mermaid updates locally and keeps the editor layout
+                  intact.
+                </p>
+                <div className="assistant-summary">
+                  <span className="panel-badge">{diagramType}</span>
+                  <span className="panel-badge">
+                    {selectedDiagramNode ? `Node: ${selectedDiagramNode.label}` : "Whole diagram"}
+                  </span>
+                  <span className="panel-badge">
+                    {detectedRuntimes.length > 0
+                      ? `${detectedRuntimes.length} runtime${detectedRuntimes.length === 1 ? "" : "s"} found`
+                      : "Local models only"}
+                  </span>
+                </div>
+              </section>
+
+              <section className="assistant-panel">
+                {assistantError ? (
+                  <p className="assistant-inline-note assistant-inline-note-error">{assistantError}</p>
+                ) : (
+                  <p className="assistant-inline-note">
+                    {hasAssistantDraft
+                      ? "A fresh AI draft is ready. Review it in the preview, then apply it when you like."
+                      : assistantRuntimeState.statusMessage}
+                  </p>
+                )}
+
+                <div className="assistant-transcript">
+                  {activeTab.assistantMessages.length === 0 ? (
+                    <div className="assistant-empty-state">
+                      <strong>Start the discussion here.</strong>
+                      <span>
+                        Ask for a first draft, a branch, a renamed step, a cleaner sequence, or a
+                        better node label.
+                      </span>
+                    </div>
+                  ) : (
+                    activeTab.assistantMessages.map((message, index) => (
+                      <article
+                        key={`${message.role}-${index}`}
+                        className={`assistant-message assistant-message-${message.role}`}
+                      >
+                        <strong>{message.role === "assistant" ? "AI coach" : "You"}</strong>
+                        <p>{message.content}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
+
+                <label className="assistant-composer">
+                  <span className="eyebrow">Ask naturally</span>
+                  <textarea
+                    onChange={(event) => setAssistantInput(event.target.value)}
+                    onKeyDown={handleAssistantComposerKeyDown}
+                    placeholder={assistantPlaceholder}
+                    rows={4}
+                    value={assistantInput}
+                  />
+                </label>
+
+                <div className="assistant-actions">
+                  <button
+                    className="button button-primary"
+                    disabled={isAssistantBusy || isLoadingLocalModels || !selectedLocalModel}
+                    onClick={() => void handleSendAssistantMessage()}
+                  >
+                    {isAssistantBusy ? "Drafting..." : "Send to AI"}
+                  </button>
+                  <button
+                    className="button button-quiet"
+                    disabled={!hasAssistantDraft}
+                    onClick={handleApplyAssistantDraft}
+                  >
+                    Apply AI Draft
+                  </button>
+                </div>
+
+                <div className="assistant-toolbar">
+                  <label className="field">
+                    Local model
+                    <select
+                      value={selectedLocalModelId}
+                      onChange={(event) => setSelectedLocalModelId(event.target.value)}
+                    >
+                      {localModels.length === 0 ? (
+                        <option value="">No models found</option>
+                      ) : (
+                        localModels.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+
+                  <button
+                    className="button button-quiet"
+                    disabled={isLoadingLocalModels}
+                    onClick={() => void refreshLocalModels({ setStatusOnError: true })}
+                  >
+                    {isLoadingLocalModels ? "Refreshing..." : "Refresh Models"}
+                  </button>
+                </div>
+
+                {detectedRuntimes.length > 0 ? (
+                  <div className="runtime-list">
+                    {detectedRuntimes.map((runtime) => (
+                      <article key={runtime.id} className="runtime-card">
+                        <strong>{runtime.label}</strong>
+                        <span>{runtime.baseUrl}</span>
+                        <span>
+                          {runtime.modelCount} model{runtime.modelCount === 1 ? "" : "s"} ready
+                        </span>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="node-picker">
+                  <div className="assistant-section-header">
+                    <p className="eyebrow">Node focus</p>
+                    <span>{diagramNodes.length} detected</span>
+                  </div>
+                  <div className="node-chip-list">
+                    <button
+                      className={`node-chip ${!selectedDiagramNode ? "node-chip-active" : ""}`}
+                      onClick={() => handleSelectNode(undefined)}
+                    >
+                      Whole diagram
+                    </button>
+                    {diagramNodes.map((node) => (
+                      <button
+                        key={node.id}
+                        className={`node-chip ${activeTab.selectedNodeId === node.id ? "node-chip-active" : ""}`}
+                        onClick={() => handleSelectNode(node.id)}
+                        title={`${node.kind}: ${node.label}`}
+                      >
+                        {node.label}
+                      </button>
+                    ))}
+                  </div>
+                  {diagramNodes.length === 0 ? (
+                    <p className="assistant-inline-note">
+                      The node selector fills in as soon as Mermaid elements appear in the editor.
+                    </p>
+                  ) : null}
+                </div>
+
+                {!assistantError && localModels.length === 0 && assistantRuntimeState.setupTips.length > 0 ? (
+                  <div className="setup-tip-list">
+                    {assistantRuntimeState.setupTips.map((tip) => (
+                      <article key={tip} className="setup-tip-card">
+                        <p>{tip}</p>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            </div>
+          </section>
+
           <section className="sidebar-section">
-            <p className="eyebrow">Start Fast</p>
+            <p className="eyebrow">Choose a diagram</p>
             <h2>Starter diagrams</h2>
             <p className="muted">
-              Open several Mermaid files at once, jump between tabs, and keep a second window nearby
-              for comparison or cleanup work.
+              Start with the diagram type you want first, then open the dialogue above whenever you
+              want help refining the structure in plain language.
             </p>
           </section>
 
@@ -1181,23 +1610,12 @@ function App() {
               <button
                 key={template.id}
                 className={`template-card template-${template.accent}`}
-                onClick={() => void handleTemplateSwap(template.source, template.label)}
+                onClick={() => void handleTemplateSwap(template)}
               >
                 <strong>{template.label}</strong>
                 <span>{template.description}</span>
               </button>
             ))}
-          </section>
-
-          <section className="sidebar-section tips">
-            <p className="eyebrow">Helpful flow</p>
-            <ul>
-              <li>Open several `.mmd`, `.mermaid`, `.md`, or `.txt` files into tabs.</li>
-              <li>Use `New Window` when you want separate workspaces side by side.</li>
-              <li>Each tab keeps its own save state, draft autosave, and theme.</li>
-              <li>Watch the active tab preview update automatically on the right.</li>
-              <li>Export SVG for crisp docs or PNG for slides and chat.</li>
-            </ul>
           </section>
         </aside>
 
@@ -1222,6 +1640,8 @@ function App() {
               onChange={(value) => {
                 updateTab(activeTab.id, (currentTab) => ({
                   ...currentTab,
+                  assistantDraftSource: undefined,
+                  assistantSuggestedTitle: undefined,
                   dirty: true,
                   source: value ?? ""
                 }));

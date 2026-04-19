@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 desktop_dir="${HOME}/.local/share/applications"
 desktop_file="${desktop_dir}/mermaid-tool.desktop"
+legacy_desktop_file="${desktop_dir}/mermaid-tool-dev.desktop"
 desktop_launcher_path="${repo_root}/bin/desktop-launch-mermaid-tool.sh"
 icon_path="${repo_root}/assets/mermaid-tool-icon.svg"
 mime_source="${repo_root}/packaging/linux/mime/mermaid-tool.xml"
@@ -28,9 +29,11 @@ Terminal=false
 Categories=Graphics;
 MimeType=text/x-mermaid;application/x-mermaid;text/plain;
 StartupNotify=true
+StartupWMClass=Mermaid Tool
 EOF
 
 chmod +x "${desktop_file}"
+rm -f "${legacy_desktop_file}"
 
 if command -v update-mime-database >/dev/null 2>&1; then
   update-mime-database "${HOME}/.local/share/mime" >/dev/null 2>&1 || true

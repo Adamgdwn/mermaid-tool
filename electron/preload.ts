@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AssistantRequest,
+  AssistantResponse,
+  AssistantRuntimeState,
   AppCommand,
   DraftPayload,
   DocumentPayload,
@@ -14,6 +17,9 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   },
   getAppVersion(): Promise<string> {
     return ipcRenderer.invoke("app:getVersion");
+  },
+  getAssistantRuntimeState(): Promise<AssistantRuntimeState> {
+    return ipcRenderer.invoke("assistant:getRuntimeState");
   },
   getLaunchDocuments(): Promise<DocumentPayload[]> {
     return ipcRenderer.invoke("file:getLaunchDocuments");
@@ -41,6 +47,9 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   },
   exportAsset(request: SaveAssetRequest): Promise<SaveResult> {
     return ipcRenderer.invoke("file:exportAsset", request);
+  },
+  generateAssistantReply(request: AssistantRequest): Promise<AssistantResponse> {
+    return ipcRenderer.invoke("assistant:generateReply", request);
   },
   onOpenDocument(listener: (document: DocumentPayload) => void): () => void {
     const wrappedListener = (_event: Electron.IpcRendererEvent, document: DocumentPayload) => {

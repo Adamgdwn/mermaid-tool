@@ -24,9 +24,17 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 ## Operator Notes
 
 - `npm run start` builds the renderer and Electron code before launch.
-- `bin/launch-mermaid-tool.sh` is the fastest repeat-launch path after dependencies are installed.
+- `bin/launch-mermaid-tool.sh` is the fastest repeat-launch path after dependencies are installed and now rebuilds automatically when repo source files are newer than the built output.
+- `npm run install:desktop` writes `~/.local/share/applications/mermaid-tool.desktop` so the repo checkout reuses the normal Mermaid Tool desktop ID instead of publishing a second launcher.
 - `npm run package:linux` produces an AppImage and a Debian package for non-source installs.
 - The app now supports multiple tabs per window and multiple windows at the same time.
+- The left rail now includes a collapsible AI builder at the top of the sidebar.
+- The sidebar keeps the same width whether the dialogue is open or closed, and the starter diagram chooser stays visible below it.
+- The AI builder uses local models only for now. It auto-detects Ollama, LM Studio, and other OpenAI-compatible local servers before the user has to think about endpoints.
+- Ollama still defaults to `http://127.0.0.1:11434`, while OpenAI-compatible local servers are checked on common local addresses such as LM Studio on `http://127.0.0.1:1234/v1` and `llama.cpp` on `http://127.0.0.1:8080/v1`.
+- Selecting a starter diagram now opens the AI conversation with diagram-aware guidance instead of forcing the user to begin in raw Mermaid syntax.
+- The AI builder can focus on the whole diagram or a detected node from the current Mermaid text, then draft a full updated Mermaid document for the editor.
+- Inside the expanded dialogue, the transcript and prompt composer stay near the top of the frame so the conversation starts where the user is already looking.
 - The app warns before replacing unsaved work in-editor and before closing the window with unsaved edits.
 - In-progress edits autosave per tab to the Electron user-data folder and are recovered automatically on the next normal launch.
 - `Save As` now opens in the same draft folder for unsaved diagrams, while existing saved files still default to their current folder.

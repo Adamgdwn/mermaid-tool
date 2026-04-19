@@ -8,8 +8,12 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 
 - App will not launch: verify `node_modules/` exists and rerun `npm run build`.
 - Desktop icon does nothing: rerun `npm run install:desktop` and confirm the launcher script is executable.
+- Two Mermaid Tool launchers are visible: rerun `npm run install:desktop`, confirm only `~/.local/share/applications/mermaid-tool.desktop` exists locally, then refresh the desktop session cache if needed.
 - `.mmd` file does not open in Mermaid Tool: rerun `npm run install:desktop` or reinstall the Debian package to refresh MIME registration.
 - Preview fails: inspect the Mermaid syntax in the editor and confirm the preview pane shows a valid render.
+- AI builder cannot find models: confirm at least one supported local runtime is running, then refresh the model list in the left rail.
+- Ollama checks `http://127.0.0.1:11434/api/tags` by default, LM Studio checks its OpenAI-compatible local server, and `llama.cpp` or similar servers are expected to expose `/v1/models`.
+- AI dialogue layout feels wrong: confirm the repo build is the version being launched, then verify the dialogue collapses upward at the top of the left sidebar while starter diagram cards remain visible underneath.
 - Export fails: confirm the preview is healthy first, then retry SVG or PNG export.
 - File open or save fails: confirm the target path is writable and the file still exists.
 - Autosave recovery looks wrong: inspect the per-tab draft files in `~/.config/Mermaid Tool/drafts/` on Linux and remove the stale `.json` entries you do not want restored.

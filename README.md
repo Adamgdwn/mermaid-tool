@@ -11,6 +11,9 @@ It is built for amateur-friendly local use:
 - open multiple Mermaid Tool windows for side-by-side work
 - edit diagrams in a large Monaco-powered editor
 - preview changes immediately with the official `mermaid` package
+- open a collapsible AI builder rail on the left and shape diagrams through plain-language back and forth
+- target local-only models served on the workstation, with no hosted AI dependency
+- keep the diagram picker visible while the dialogue panel collapses upward inside the same sidebar
 - pop the live preview into a fullscreen presentation view on demand
 - right-drag the preview canvas to grab and pan large diagrams
 - zoom the preview by scrolling directly over the canvas
@@ -35,9 +38,13 @@ It is built for amateur-friendly local use:
 
 1. Run `bash scripts/governance-preflight.sh`
 2. Install dependencies with `npm install`
-3. Build and launch with `npm run start`
-4. Install the Linux desktop launcher with `npm run install:desktop`
-5. Launch later with `bin/launch-mermaid-tool.sh` or from the desktop menu entry `Mermaid Tool`
+3. If you want the AI builder, start any supported local runtime:
+   - Ollama with at least one pulled chat model
+   - LM Studio with its local server enabled
+   - `llama.cpp` or another OpenAI-compatible local server
+4. Build and launch with `npm run start`
+5. Install the Linux desktop launcher with `npm run install:desktop`
+6. Launch later with `bin/launch-mermaid-tool.sh` or from the desktop menu entry `Mermaid Tool`
 
 ## Packaged Linux Builds
 
@@ -50,6 +57,7 @@ It is built for amateur-friendly local use:
 ## File Associations
 
 - `npm run install:desktop` now installs a local desktop entry and Mermaid MIME definitions.
+- the local install writes `~/.local/share/applications/mermaid-tool.desktop`, which reuses the normal Mermaid Tool desktop ID and points it at this repo checkout
 - `.mmd` and `.mermaid` are registered locally and set to open with `Mermaid Tool` on this machine.
 
 ## Validation Commands

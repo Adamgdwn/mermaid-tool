@@ -1,4 +1,7 @@
 import type {
+  AssistantRequest,
+  AssistantResponse,
+  AssistantRuntimeState,
   AppCommand,
   DraftPayload,
   DocumentPayload,
@@ -14,6 +17,8 @@ declare global {
       createWindow(): Promise<void>;
       deleteDocument(documentPath: string): Promise<void>;
       exportAsset(request: SaveAssetRequest): Promise<SaveResult>;
+      generateAssistantReply(request: AssistantRequest): Promise<AssistantResponse>;
+      getAssistantRuntimeState(): Promise<AssistantRuntimeState>;
       getAppVersion(): Promise<string>;
       getLaunchDocuments(): Promise<DocumentPayload[]>;
       getRecoveredDrafts(): Promise<DraftPayload[]>;
