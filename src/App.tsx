@@ -95,6 +95,11 @@ function formatErrorMessage(error: unknown): string {
   return "Mermaid couldn't render the current text yet.";
 }
 
+function summarizeRenderError(message: string): string {
+  return message.split("\n").find((line) => line.trim())?.trim()
+    ?? "Mermaid couldn't render the current text yet.";
+}
+
 function formatClockTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "numeric",
@@ -1242,7 +1247,7 @@ function App() {
       return (
         <div className="preview-empty">
           <h3>Preview paused</h3>
-          <p>{renderError}</p>
+          <p className="preview-error-message">{renderError}</p>
         </div>
       );
     }
@@ -1691,7 +1696,11 @@ function App() {
               >
                 Full Screen
               </button>
-              <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
+              <div
+                aria-label={renderError ? `Preview needs attention: ${summarizeRenderError(renderError)}` : undefined}
+                className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}
+                title={renderError ? summarizeRenderError(renderError) : undefined}
+              >
                 {renderError ? "Needs attention" : isRendering ? "Rendering" : "Live"}
               </div>
             </div>
@@ -1702,7 +1711,9 @@ function App() {
       </main>
 
       <footer className="statusbar">
-        <span>{statusMessage}</span>
+        <span className={renderError ? "statusbar-alert" : undefined}>
+          {renderError ? `Preview needs attention: ${summarizeRenderError(renderError)}` : statusMessage}
+        </span>
         <span>{activeTab.documentPath ?? "Unsaved local draft"}</span>
         <span>{tabs.length} tabs open</span>
         <span>{lineCount} lines</span>
@@ -1745,7 +1756,11 @@ function App() {
               >
                 Whole
               </button>
-              <div className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}>
+              <div
+                aria-label={renderError ? `Preview needs attention: ${summarizeRenderError(renderError)}` : undefined}
+                className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}
+                title={renderError ? summarizeRenderError(renderError) : undefined}
+              >
                 {renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}
               </div>
               <button className="button button-quiet" onClick={() => void closePreviewFullscreen()}>
