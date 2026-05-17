@@ -3,6 +3,7 @@ import type {
   AssistantResponse,
   AssistantRuntimeState,
   AppCommand,
+  CopyImageRequest,
   DraftPayload,
   DocumentPayload,
   SaveAssetRequest,
@@ -14,6 +15,7 @@ declare global {
   interface Window {
     mermaidTool: {
       clearDraft(draftId: string): Promise<void>;
+      copyImage(request: CopyImageRequest): Promise<void>;
       createWindow(): Promise<void>;
       deleteDocument(documentPath: string): Promise<void>;
       exportAsset(request: SaveAssetRequest): Promise<SaveResult>;

@@ -122,6 +122,34 @@ select {
   align-items: center;
 }
 
+.toolbar-main {
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.toolbar-segment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem;
+  border-radius: 1.2rem;
+  background: rgba(255, 249, 240, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(23, 57, 85, 0.07);
+}
+
+.toolbar-segment-secondary {
+  opacity: 0.9;
+}
+
+.toolbar-label {
+  padding-inline: 0.4rem 0.15rem;
+  color: #6c7780;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .toolbar-right {
   justify-content: flex-end;
 }
@@ -385,9 +413,33 @@ select {
 }
 
 .runtime-list,
-.setup-tip-list {
+.setup-tip-list,
+.setup-panel {
   display: grid;
   gap: 0.6rem;
+}
+
+.setup-panel {
+  padding: 0.9rem;
+  border-radius: 1rem;
+  background:
+    linear-gradient(135deg, rgba(79, 124, 255, 0.12), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 0 0 1px rgba(23, 57, 85, 0.08);
+}
+
+.setup-panel h3,
+.setup-panel p {
+  margin: 0;
+}
+
+.setup-panel h3 {
+  color: #173955;
+}
+
+.setup-panel > p {
+  color: #55606a;
+  line-height: 1.5;
 }
 
 .runtime-card,

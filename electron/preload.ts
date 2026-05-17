@@ -4,6 +4,7 @@ import type {
   AssistantResponse,
   AssistantRuntimeState,
   AppCommand,
+  CopyImageRequest,
   DraftPayload,
   DocumentPayload,
   SaveAssetRequest,
@@ -47,6 +48,9 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   },
   exportAsset(request: SaveAssetRequest): Promise<SaveResult> {
     return ipcRenderer.invoke("file:exportAsset", request);
+  },
+  copyImage(request: CopyImageRequest): Promise<void> {
+    return ipcRenderer.invoke("clipboard:copyImage", request);
   },
   generateAssistantReply(request: AssistantRequest): Promise<AssistantResponse> {
     return ipcRenderer.invoke("assistant:generateReply", request);

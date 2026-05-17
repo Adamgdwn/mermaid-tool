@@ -4,6 +4,9 @@
 
 - changed blank new tabs to show a calm ready state instead of a preview error
 - clarified the assistant availability badge when no local AI runtime is detected
+- grouped the main toolbar into start, keep, share, and more actions for easier scanning
+- added clipboard image sharing and refreshed starter diagrams around practical business use cases
+- expanded the no-model assistant state into an optional local-AI setup panel
 
 ## 0.2.3 - 2026-04-19
 

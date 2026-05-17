@@ -43,6 +43,10 @@ export interface SaveAssetRequest {
   suggestedName: string;
 }
 
+export interface CopyImageRequest {
+  dataUrl: string;
+}
+
 export interface SaveResult {
   canceled: boolean;
   path?: string;

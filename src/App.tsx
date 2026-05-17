@@ -855,6 +855,26 @@ function App() {
     }
   }
 
+  async function handleCopyPreviewImage(): Promise<void> {
+    if (!svgMarkup || renderError) {
+      setStatusMessage("Fix the preview first, then copy an image.");
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      await window.mermaidTool.copyImage({
+        dataUrl: await renderSvgToPngDataUrl(svgMarkup)
+      });
+      setStatusMessage("Copied the preview image to the clipboard.");
+    } catch (error) {
+      setStatusMessage(`Copy failed: ${formatErrorMessage(error)}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   function fitPreviewToCanvas(
     canvas: HTMLDivElement,
     mode: "fullscreen" | "preview" = "preview",
@@ -1426,53 +1446,72 @@ function App() {
           </div>
         </div>
 
-        <div className="toolbar">
-          <button className="button button-quiet" onClick={() => void handleNewTab()}>
-            New Tab
-          </button>
-          <button className="button button-quiet" onClick={() => void handleNewWindow()}>
-            New Window
-          </button>
-          <button className="button button-quiet" onClick={() => void handleOpenDocuments()}>
-            Open
-          </button>
-          <button className="button button-primary" onClick={() => void handleSaveDocument(false)}>
-            Save
-          </button>
-          <button className="button button-quiet" onClick={() => void handleSaveDocument(true)}>
-            Save As
-          </button>
-          <button
-            className="button button-quiet"
-            disabled={!activeTab.source}
-            onClick={() => void handleWipeDocument()}
-          >
-            Wipe
-          </button>
-          <button
-            className="button button-danger"
-            disabled={!activeTab.documentPath}
-            onClick={() => void handleDeleteDocument()}
-          >
-            Delete File
-          </button>
-          <button className="button button-quiet" onClick={() => void handleCloseTab()}>
-            Close Tab
-          </button>
-          <button
-            className="button button-quiet"
-            disabled={!svgMarkup || !!renderError || isExporting}
-            onClick={() => void handleExport("svg")}
-          >
-            Export SVG
-          </button>
-          <button
-            className="button button-quiet"
-            disabled={!svgMarkup || !!renderError || isExporting}
-            onClick={() => void handleExport("png")}
-          >
-            Export PNG
-          </button>
+        <div className="toolbar toolbar-main">
+          <div className="toolbar-segment">
+            <span className="toolbar-label">Start</span>
+            <button className="button button-quiet" onClick={() => void handleNewTab()}>
+              New
+            </button>
+            <button className="button button-quiet" onClick={() => void handleOpenDocuments()}>
+              Open
+            </button>
+          </div>
+          <div className="toolbar-segment">
+            <span className="toolbar-label">Keep</span>
+            <button className="button button-primary" onClick={() => void handleSaveDocument(false)}>
+              Save
+            </button>
+            <button className="button button-quiet" onClick={() => void handleSaveDocument(true)}>
+              Save As
+            </button>
+          </div>
+          <div className="toolbar-segment">
+            <span className="toolbar-label">Share</span>
+            <button
+              className="button button-quiet"
+              disabled={!svgMarkup || !!renderError || isExporting}
+              onClick={() => void handleCopyPreviewImage()}
+            >
+              Copy Image
+            </button>
+            <button
+              className="button button-quiet"
+              disabled={!svgMarkup || !!renderError || isExporting}
+              onClick={() => void handleExport("png")}
+            >
+              PNG
+            </button>
+            <button
+              className="button button-quiet"
+              disabled={!svgMarkup || !!renderError || isExporting}
+              onClick={() => void handleExport("svg")}
+            >
+              SVG
+            </button>
+          </div>
+          <div className="toolbar-segment toolbar-segment-secondary">
+            <span className="toolbar-label">More</span>
+            <button className="button button-quiet" onClick={() => void handleNewWindow()}>
+              Window
+            </button>
+            <button className="button button-quiet" onClick={() => void handleCloseTab()}>
+              Close
+            </button>
+            <button
+              className="button button-quiet"
+              disabled={!activeTab.source}
+              onClick={() => void handleWipeDocument()}
+            >
+              Wipe
+            </button>
+            <button
+              className="button button-danger"
+              disabled={!activeTab.documentPath}
+              onClick={() => void handleDeleteDocument()}
+            >
+              Delete
+            </button>
+          </div>
         </div>
 
         <div className="toolbar toolbar-right">
@@ -1723,7 +1762,22 @@ function App() {
                 </div>
 
                 {!assistantError && localModels.length === 0 && assistantRuntimeState.setupTips.length > 0 ? (
-                  <div className="setup-tip-list">
+                  <div className="setup-panel">
+                    <div>
+                      <p className="eyebrow">Optional AI setup</p>
+                      <h3>Turn on local suggestions</h3>
+                    </div>
+                    <p>
+                      Mermaid Tool works without AI. Start Ollama or LM Studio when you want private
+                      diagram drafts and automatic syntax repair.
+                    </p>
+                    <button
+                      className="button button-quiet"
+                      disabled={isLoadingLocalModels}
+                      onClick={() => void refreshLocalModels({ setStatusOnError: true })}
+                    >
+                      Check Again
+                    </button>
                     {assistantRuntimeState.setupTips.map((tip) => (
                       <article key={tip} className="setup-tip-card">
                         <p>{tip}</p>

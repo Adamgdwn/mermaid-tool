@@ -9,96 +9,125 @@ export interface DiagramTemplate {
 export const TEMPLATE_LIBRARY: DiagramTemplate[] = [
   {
     id: "flow-launch",
-    label: "Flowchart Starter",
+    label: "Client Journey",
     accent: "sunrise",
-    description: "A friendly starter for ideas, processes, and decision trees.",
+    description: "Map the path from first visit to paid client.",
     source: `flowchart TD
-    A[Start with a rough idea] --> B{What are you mapping?}
-    B -->|Workflow| C[Show the major steps]
-    B -->|System| D[Capture the main components]
-    B -->|Decision| E[Write the branching choices]
-    C --> F[Review with teammates]
-    D --> F
+    A[Visitor lands on site] --> B{What do they need?}
+    B -->|Learn first| C[Read practical guide]
+    B -->|Solve a problem| D[Review service page]
+    B -->|Compare options| E[Download checklist]
+    C --> F[Join email follow-up]
+    D --> G[Book discovery call]
     E --> F
-    F --> G[Export as SVG or PNG]
+    F --> H[Receive helpful sequence]
+    H --> G
+    G --> I[Convert to qualified opportunity]
 `
   },
   {
     id: "sequence-support",
-    label: "Sequence Diagram",
+    label: "Support Handoff",
     accent: "ocean",
-    description: "Trace a user request, support flow, or integration call.",
+    description: "Show who owns each step in a customer support flow.",
     source: `sequenceDiagram
     autonumber
-    actor User
-    participant App as Mermaid Tool
-    participant Engine as Mermaid Renderer
-    User->>App: Open a local .mmd file
-    App->>Engine: Render the latest diagram text
-    Engine-->>App: Fresh SVG preview
-    App-->>User: Show preview and export actions
+    actor Customer
+    participant Support as Support desk
+    participant Product as Product team
+    participant Success as Customer success
+    Customer->>Support: Reports a confusing workflow
+    Support->>Support: Reproduce and classify issue
+    Support->>Product: Escalate with notes and screenshot
+    Product-->>Support: Confirm fix or workaround
+    Support->>Success: Share customer-facing response
+    Success-->>Customer: Follow up with next steps
 `
   },
   {
     id: "class-shape",
-    label: "Class Diagram",
+    label: "Data Model",
     accent: "mint",
-    description: "Outline relationships between classes or data objects.",
+    description: "Sketch business objects before writing code.",
     source: `classDiagram
-    class Workspace {
-      +String path
-      +String content
-      +save()
+    class Customer {
+      +String name
+      +String status
+      +Date createdAt
     }
-    class PreviewPane {
-      +render()
-      +exportSvg()
-      +exportPng()
+    class Project {
+      +String title
+      +String stage
+      +Date dueDate
     }
-    class WorkspaceStore {
-      +load()
-      +reset()
+    class Invoice {
+      +Decimal total
+      +String paymentStatus
     }
-    WorkspaceStore --> Workspace
-    Workspace --> PreviewPane
+    class Task {
+      +String label
+      +Boolean complete
+    }
+    Customer --> Project
+    Project --> Task
+    Project --> Invoice
 `
   },
   {
     id: "gantt-plan",
-    label: "Gantt Plan",
+    label: "Launch Plan",
     accent: "berry",
-    description: "Plan a rollout, roadmap, or weekend project.",
+    description: "Turn a rollout into a timeline people can read quickly.",
     source: `gantt
-    title Mermaid Tool Launch Plan
+    title Product Launch Plan
     dateFormat  YYYY-MM-DD
-    section Product
-    Draft workflow       :done, task1, 2026-04-11, 1d
-    Build desktop shell  :done, task2, after task1, 1d
-    Polish exports       :active, task3, after task2, 2d
-    section Rollout
-    Install launcher     :task4, after task3, 1d
-    Share with users     :task5, after task4, 1d
+    section Prepare
+    Confirm audience      :done, task1, 2026-05-18, 1d
+    Finish core offer     :active, task2, after task1, 2d
+    Build demo assets     :task3, after task2, 2d
+    section Launch
+    Publish announcement  :task4, after task3, 1d
+    Run customer demos    :task5, after task4, 3d
+    Review feedback       :task6, after task5, 1d
 `
   },
   {
     id: "mindmap-ideas",
-    label: "Mindmap",
+    label: "Strategy Map",
     accent: "gold",
-    description: "Organize loose thoughts into a clear visual structure.",
+    description: "Collect ideas, priorities, and next actions in one view.",
     source: `mindmap
-      root((Mermaid Tool))
-        Capture
-          Open local files
-          Save drafts
-          Start from templates
-        Preview
-          Live rendering
-          Zoom controls
-          Theme switching
-        Share
-          Export SVG
-          Export PNG
-          Desktop launcher
+      root((Growth strategy))
+        Audience
+          Beginners
+          Operators
+          Consultants
+        Offer
+          Clear outcome
+          Simple onboarding
+          Trust signals
+        Channels
+          Website
+          Newsletter
+          Partner referrals
+        Metrics
+          Qualified calls
+          Activation rate
+          Repeat usage
+`
+  },
+  {
+    id: "workflow-review",
+    label: "Approval Workflow",
+    accent: "ocean",
+    description: "Clarify review, approval, and rework loops.",
+    source: `flowchart LR
+    A[Draft request] --> B[Assign reviewer]
+    B --> C{Ready to approve?}
+    C -->|Needs work| D[Return with notes]
+    D --> A
+    C -->|Approved| E[Publish or hand off]
+    E --> F[Record decision]
 `
   }
 ];

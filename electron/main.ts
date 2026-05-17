@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeImage } from "electron";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type {
   AssistantRequest,
   AppCommand,
+  CopyImageRequest,
   DraftPayload,
   DocumentPayload,
   SaveAssetRequest,
@@ -291,6 +292,15 @@ async function persistAsset(
   };
 }
 
+function copyImageToClipboard(request: CopyImageRequest): void {
+  const image = nativeImage.createFromDataURL(request.dataUrl);
+  if (image.isEmpty()) {
+    throw new Error("The preview image could not be copied.");
+  }
+
+  clipboard.writeImage(image);
+}
+
 async function deleteTextDocument(filePath: string): Promise<void> {
   await fsp.unlink(filePath);
 }
@@ -451,6 +461,10 @@ ipcMain.handle("file:saveAs", async (_event, request: SaveDocumentRequest) => {
 
 ipcMain.handle("file:exportAsset", async (_event, request: SaveAssetRequest) => {
   return persistAsset(getWindowFromWebContents(_event.sender), request);
+});
+
+ipcMain.handle("clipboard:copyImage", async (_event, request: CopyImageRequest) => {
+  copyImageToClipboard(request);
 });
 
 ipcMain.handle("draft:getRecovered", async () => {
