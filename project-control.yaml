@@ -2,6 +2,9 @@ project_name: mermaid-tool
 project_type: application
 risk_tier: medium
 repository_model: single-repo
+repository_policy:
+  default_target_branch: main
+  publish_preference: Push completed changes directly to main unless Adam explicitly requests a branch or pull request.
 owner:
   name: Adam Goodwin
   role: owner
@@ -38,4 +41,3 @@ agent_controls:
   autonomy_level: A0
   model_registry: []
   prompt_registry: []
-
