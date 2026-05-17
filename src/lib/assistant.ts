@@ -194,7 +194,16 @@ export function extractDiagramNodes(source: string): DiagramNode[] {
 }
 
 export function normalizeMermaidSource(source: string): string {
-  return source.replace(/\r\n/g, "\n").trim();
+  return source
+    .replace(/\r\n/g, "\n")
+    .replace(/\b([A-Za-z][\w-]*)(\s*)\[\/([^\]\n]+)\]/g, (match, nodeId, spacing, label) => {
+      if (label.endsWith("/")) {
+        return match;
+      }
+
+      return `${nodeId}${spacing}["/${label.replace(/"/g, "#quot;")}"]`;
+    })
+    .trim();
 }
 
 export function buildAssistantPlaceholder(

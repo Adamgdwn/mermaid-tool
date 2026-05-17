@@ -38,6 +38,18 @@ describe("normalizeMermaidSource", () => {
   it("normalizes line endings and trims outer whitespace", () => {
     expect(normalizeMermaidSource(" \r\nflowchart TD\r\nA-->B\r\n")).toBe("flowchart TD\nA-->B");
   });
+
+  it("quotes path-like flowchart labels that Mermaid would parse as open shapes", () => {
+    expect(normalizeMermaidSource("flowchart TD\nA --> B[/learn/start<br/>Start here]")).toBe(
+      "flowchart TD\nA --> B[\"/learn/start<br/>Start here\"]"
+    );
+  });
+
+  it("keeps completed slash-shape flowchart labels intact", () => {
+    expect(normalizeMermaidSource("flowchart TD\nA --> B[/Manual step/]")).toBe(
+      "flowchart TD\nA --> B[/Manual step/]"
+    );
+  });
 });
 
 describe("buildAssistantPlaceholder", () => {
