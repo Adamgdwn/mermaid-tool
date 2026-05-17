@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AppStorageInfo,
   AssistantRequest,
   AssistantResponse,
   AssistantRuntimeState,
@@ -19,6 +20,9 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   getAppVersion(): Promise<string> {
     return ipcRenderer.invoke("app:getVersion");
   },
+  getStorageInfo(): Promise<AppStorageInfo> {
+    return ipcRenderer.invoke("app:getStorageInfo");
+  },
   getAssistantRuntimeState(): Promise<AssistantRuntimeState> {
     return ipcRenderer.invoke("assistant:getRuntimeState");
   },
@@ -33,6 +37,9 @@ contextBridge.exposeInMainWorld("mermaidTool", {
   },
   deleteDocument(documentPath: string): Promise<void> {
     return ipcRenderer.invoke("file:delete", documentPath);
+  },
+  showDocumentInFolder(documentPath: string): Promise<void> {
+    return ipcRenderer.invoke("file:showInFolder", documentPath);
   },
   saveDocument(request: SaveDocumentRequest): Promise<SaveResult> {
     return ipcRenderer.invoke("file:save", request);

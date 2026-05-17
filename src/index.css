@@ -706,6 +706,56 @@ select {
   color: #a53c29;
 }
 
+.file-location {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  margin: -0.2rem 0 0.95rem;
+  padding: 0.85rem;
+  border-radius: 1rem;
+  background: rgba(255, 249, 240, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(23, 57, 85, 0.08);
+}
+
+.file-location-copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.file-location-copy strong {
+  color: #173955;
+  font-size: 0.85rem;
+}
+
+.file-location-copy span {
+  overflow: hidden;
+  color: #43515c;
+  font-family: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-location-copy p {
+  margin: 0;
+  color: #68737c;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.file-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.file-location-actions .button {
+  padding: 0.65rem 0.9rem;
+}
+
 .editor-shell,
 .preview-shell {
   flex: 1;
@@ -904,6 +954,14 @@ select {
 
   .assistant-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .file-location {
+    grid-template-columns: 1fr;
+  }
+
+  .file-location-actions {
+    justify-content: flex-start;
   }
 
   .assistant-shell-header {

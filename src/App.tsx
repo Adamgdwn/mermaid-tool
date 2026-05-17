@@ -12,6 +12,7 @@ import {
   type WheelEvent as ReactWheelEvent
 } from "react";
 import type {
+  AppStorageInfo,
   AssistantChatMessage,
   AssistantRuntimeState,
   AppCommand,
@@ -219,6 +220,7 @@ function App() {
   const initialTabRef = useRef<WorkspaceTab>(createStartupTab());
 
   const [appVersion, setAppVersion] = useState("0.0.0");
+  const [storageInfo, setStorageInfo] = useState<AppStorageInfo | null>(null);
   const [tabs, setTabs] = useState<WorkspaceTab[]>([initialTabRef.current]);
   const [activeTabId, setActiveTabId] = useState(initialTabRef.current.id);
   const [zoom, setZoom] = useState(1);
@@ -279,6 +281,14 @@ function App() {
     assistantError ? "assistant-inline-note-error" : "",
     !assistantError && renderError && isActionableRenderError(renderError) ? "assistant-inline-note-warning" : ""
   ].filter(Boolean).join(" ");
+  const saveButtonLabel = activeTab.documentPath ? "Save" : "Save...";
+  const saveButtonTitle = activeTab.documentPath
+    ? `Save changes to ${activeTab.documentPath}`
+    : `Choose where to save this diagram. New files start in ${storageInfo?.defaultSaveDirectory ?? "Documents/Mermaid Tool"}.`;
+  const fileLocationLabel = activeTab.documentPath ?? "Not saved to a file yet";
+  const fileLocationDetail = activeTab.documentPath
+    ? "Save overwrites this file. Save As lets you make a copy somewhere else."
+    : `Autosave is only for crash recovery. Use Save to create a .mmd file${storageInfo?.defaultSaveDirectory ? ` in ${storageInfo.defaultSaveDirectory} or another folder` : ""}.`;
 
   const requestRenderFixSuggestion = useEffectEvent(async (errorMessage: string) => {
     const requestKey = `${activeTab.id}\n${activeTab.source}\n${errorMessage}`;
@@ -817,7 +827,22 @@ function App() {
       lastSavedAt: formatClockTime(new Date().toISOString())
     }));
 
-    setStatusMessage(`Saved ${getFileNameFromPath(saveResult.path)}.`);
+    setStatusMessage(`Saved ${getFileNameFromPath(saveResult.path)} to ${saveResult.path}.`);
+  }
+
+  async function handleShowDocumentInFolder(): Promise<void> {
+    const documentPath = activeTabRef.current.documentPath;
+    if (!documentPath) {
+      setStatusMessage("This diagram is protected by recovery autosave, but it is not saved to a file yet. Use Save to choose a location.");
+      return;
+    }
+
+    try {
+      await window.mermaidTool.showDocumentInFolder(documentPath);
+      setStatusMessage(`Opened the folder for ${getFileNameFromPath(documentPath)}.`);
+    } catch (error) {
+      setStatusMessage(`Could not show the file location: ${formatErrorMessage(error)}`);
+    }
   }
 
   async function handleExport(format: "png" | "svg"): Promise<void> {
@@ -1296,8 +1321,9 @@ function App() {
 
     void (async () => {
       try {
-        const [version, launchDocuments, recoveredDrafts] = await Promise.all([
+        const [version, storage, launchDocuments, recoveredDrafts] = await Promise.all([
           window.mermaidTool.getAppVersion(),
+          window.mermaidTool.getStorageInfo(),
           window.mermaidTool.getLaunchDocuments(),
           window.mermaidTool.getRecoveredDrafts()
         ]);
@@ -1307,6 +1333,7 @@ function App() {
         }
 
         setAppVersion(version);
+        setStorageInfo(storage);
 
         const recoveredTabs = recoveredDrafts.map((draft) => createTabFromDraft(draft));
         const launchTabs = launchDocuments.map((document) => createTabFromDocument(document));
@@ -1458,10 +1485,18 @@ function App() {
           </div>
           <div className="toolbar-segment">
             <span className="toolbar-label">Keep</span>
-            <button className="button button-primary" onClick={() => void handleSaveDocument(false)}>
-              Save
+            <button
+              className="button button-primary"
+              onClick={() => void handleSaveDocument(false)}
+              title={saveButtonTitle}
+            >
+              {saveButtonLabel}
             </button>
-            <button className="button button-quiet" onClick={() => void handleSaveDocument(true)}>
+            <button
+              className="button button-quiet"
+              onClick={() => void handleSaveDocument(true)}
+              title={activeTab.documentPath ? "Save a copy to another file." : saveButtonTitle}
+            >
               Save As
             </button>
           </div>
@@ -1567,7 +1602,7 @@ function App() {
                   {tab.documentName}
                   {tab.dirty ? " *" : ""}
                 </span>
-                <span className="tabchip-subtitle">{tab.documentPath ?? "Unsaved draft"}</span>
+                <span className="tabchip-subtitle">{tab.documentPath ?? "Recovery draft only"}</span>
               </button>
               <button
                 aria-label={`Close ${tab.documentName}`}
@@ -1827,6 +1862,33 @@ function App() {
             </div>
           </div>
 
+          <div className="file-location">
+            <div className="file-location-copy">
+              <strong>{activeTab.documentPath ? "Saved file" : "File not chosen yet"}</strong>
+              <span title={fileLocationLabel}>{fileLocationLabel}</span>
+              <p>{fileLocationDetail}</p>
+            </div>
+            <div className="file-location-actions">
+              <button
+                className="button button-primary"
+                onClick={() => void handleSaveDocument(false)}
+                title={saveButtonTitle}
+              >
+                {saveButtonLabel}
+              </button>
+              <button className="button button-quiet" onClick={() => void handleSaveDocument(true)}>
+                Save As
+              </button>
+              <button
+                className="button button-quiet"
+                disabled={!activeTab.documentPath}
+                onClick={() => void handleShowDocumentInFolder()}
+              >
+                Show Folder
+              </button>
+            </div>
+          </div>
+
           <div className="editor-shell">
             <Editor
               defaultLanguage="markdown"
@@ -1904,7 +1966,7 @@ function App() {
         <span className={renderError ? "statusbar-alert" : undefined}>
           {renderError ? `Preview needs attention: ${summarizeRenderError(renderError)}` : statusMessage}
         </span>
-        <span>{activeTab.documentPath ?? "Unsaved local draft"}</span>
+        <span>{activeTab.documentPath ?? "Not saved to a file yet"}</span>
         <span>{tabs.length} tabs open</span>
         <span>{lineCount} lines</span>
         <span>

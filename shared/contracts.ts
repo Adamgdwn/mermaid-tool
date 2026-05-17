@@ -52,6 +52,11 @@ export interface SaveResult {
   path?: string;
 }
 
+export interface AppStorageInfo {
+  defaultSaveDirectory: string;
+  draftDirectory: string;
+}
+
 export interface AssistantChatMessage {
   content: string;
   role: AssistantChatRole;

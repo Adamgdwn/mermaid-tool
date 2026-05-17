@@ -21,8 +21,9 @@ It is built for amateur-friendly local use:
 - use a tighter default flowchart layout so complex diagrams stay more compact and readable
 - autosave in-progress drafts locally and recover them on restart
 - autosave each open tab as its own local recovery draft
-- open `Save As` for unsaved work directly in the same local draft folder used by autosave recovery
-- default `Open` to that same local draft/save folder for a smoother round-trip workflow
+- save user files to a normal `Documents/Mermaid Tool` folder by default
+- see whether a tab is only protected by recovery autosave or has a real saved file path
+- reveal saved diagrams in the system file manager
 - wipe the editor or delete the current saved file from inside the app
 - export SVG and PNG locally
 - install a Linux desktop launcher for one-click startup

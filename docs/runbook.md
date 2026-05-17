@@ -16,6 +16,7 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 - AI dialogue layout feels wrong: confirm the repo build is the version being launched, then verify the dialogue collapses upward at the top of the left sidebar while starter diagram cards remain visible underneath.
 - Export fails: confirm the preview is healthy first, then retry SVG or PNG export.
 - File open or save fails: confirm the target path is writable and the file still exists.
+- Unsaved work is confusing: confirm the editor location panel says "File not chosen yet"; recovery drafts live in hidden app data, while user-created saves default to `Documents/Mermaid Tool`.
 - Autosave recovery looks wrong: inspect the per-tab draft files in `~/.config/Mermaid Tool/drafts/` on Linux and remove the stale `.json` entries you do not want restored.
 - Packaged install problems: inspect `release/` artifacts, confirm `dpkg -i` completed, and re-run package generation.
 

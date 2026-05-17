@@ -1,8 +1,9 @@
-import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeImage, shell } from "electron";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type {
+  AppStorageInfo,
   AssistantRequest,
   AppCommand,
   CopyImageRequest,
@@ -97,12 +98,23 @@ function getDraftDirectoryPath(): string {
   return path.join(app.getPath("userData"), "drafts");
 }
 
+function getDefaultSaveDirectoryPath(): string {
+  return path.join(app.getPath("documents"), APP_NAME);
+}
+
 function getDefaultDocumentSavePath(request: SaveDocumentRequest): string {
   if (request.path) {
     return path.join(path.dirname(request.path), request.suggestedName);
   }
 
-  return path.join(getDraftDirectoryPath(), request.suggestedName);
+  return path.join(getDefaultSaveDirectoryPath(), request.suggestedName);
+}
+
+function getAppStorageInfo(): AppStorageInfo {
+  return {
+    defaultSaveDirectory: getDefaultSaveDirectoryPath(),
+    draftDirectory: getDraftDirectoryPath()
+  };
 }
 
 async function readDrafts(): Promise<DraftPayload[]> {
@@ -248,6 +260,8 @@ async function persistTextDocument(
   let destinationPath = request.path;
 
   if (forceDialog || !destinationPath) {
+    await fsp.mkdir(path.dirname(getDefaultDocumentSavePath(request)), { recursive: true });
+
     const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
       defaultPath: getDefaultDocumentSavePath(request),
       filters: TEXT_FILE_FILTERS
@@ -412,6 +426,8 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle("app:getVersion", () => app.getVersion());
 
+ipcMain.handle("app:getStorageInfo", () => getAppStorageInfo());
+
 ipcMain.handle("assistant:getRuntimeState", async () => {
   return getAssistantRuntimeState();
 });
@@ -433,9 +449,10 @@ ipcMain.handle("file:getLaunchDocuments", (event) => {
 
 ipcMain.handle("file:open", async (event) => {
   const browserWindow = getWindowFromWebContents(event.sender);
+  await fsp.mkdir(getDefaultSaveDirectoryPath(), { recursive: true });
 
   const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
-    defaultPath: getDraftDirectoryPath(),
+    defaultPath: getDefaultSaveDirectoryPath(),
     filters: TEXT_FILE_FILTERS,
     properties: ["multiSelections", "openFile"]
   });
@@ -449,6 +466,10 @@ ipcMain.handle("file:open", async (event) => {
 
 ipcMain.handle("file:delete", async (_event, filePath: string) => {
   await deleteTextDocument(filePath);
+});
+
+ipcMain.handle("file:showInFolder", async (_event, filePath: string) => {
+  shell.showItemInFolder(filePath);
 });
 
 ipcMain.handle("file:save", async (_event, request: SaveDocumentRequest) => {

@@ -7,6 +7,9 @@
 - grouped the main toolbar into start, keep, share, and more actions for easier scanning
 - added clipboard image sharing and refreshed starter diagrams around practical business use cases
 - expanded the no-model assistant state into an optional local-AI setup panel
+- clarified the difference between autosave recovery and user-saved files with a visible file-location panel
+- changed new saves and opens to default to `Documents/Mermaid Tool` instead of the hidden recovery draft folder
+- added a `Show Folder` action for saved diagrams
 
 ## 0.2.3 - 2026-04-19
 
