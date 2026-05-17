@@ -468,6 +468,11 @@ select {
   color: #963827;
 }
 
+.assistant-inline-note-warning {
+  background: rgba(190, 139, 48, 0.12);
+  color: #73511b;
+}
+
 .assistant-transcript {
   display: grid;
   align-content: start;

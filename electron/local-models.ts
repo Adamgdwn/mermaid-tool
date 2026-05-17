@@ -148,6 +148,7 @@ function buildAssistantSystemPrompt(request: AssistantRequest): string {
     "Always return strict JSON with these string keys: assistantMessage, updatedSource, suggestedTitle.",
     "assistantMessage should explain what changed and mention any assumption you made.",
     "updatedSource must be a complete Mermaid document with no code fences.",
+    "When fixing a render error, make the smallest valid Mermaid syntax change that preserves the user's intent.",
     "If the current source is blank, create a sensible first draft instead of asking the user to do the syntax work."
   ].join(" ");
 }

@@ -100,6 +100,21 @@ function summarizeRenderError(message: string): string {
     ?? "Mermaid couldn't render the current text yet.";
 }
 
+function isActionableRenderError(message: string): boolean {
+  return Boolean(message.trim()) && !message.startsWith("Add Mermaid syntax");
+}
+
+function buildRenderFixPrompt(errorMessage: string): string {
+  return [
+    "The live Mermaid preview just reported this render error:",
+    errorMessage,
+    "",
+    "Suggest the smallest safe Mermaid syntax fix and return a complete updatedSource.",
+    "Preserve the diagram's intended meaning, labels, layout direction, and existing structure.",
+    "If the error is caused by a route or URL-like node label that starts with /, quote the label instead of changing the text."
+  ].join("\n");
+}
+
 function formatClockTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "numeric",
@@ -231,6 +246,7 @@ function App() {
   const previewPanSessionRef = useRef<PreviewPanSession | null>(null);
   const previewCanvasRef = useRef<HTMLDivElement | null>(null);
   const previewFocusCanvasRef = useRef<HTMLDivElement | null>(null);
+  const renderFixRequestKeysRef = useRef<Set<string>>(new Set());
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? initialTabRef.current;
   const deferredSource = useDeferredValue(activeTab.source);
@@ -246,6 +262,36 @@ function App() {
   const hasAssistantDraft = normalizedAssistantDraft.length > 0
     && normalizedAssistantDraft !== normalizeMermaidSource(activeTab.source);
   const isWindowDirty = tabs.some((tab) => tab.dirty);
+  const assistantNote = assistantError
+    ? assistantError
+    : renderError && isActionableRenderError(renderError) && hasAssistantDraft
+      ? "Preview issue detected. Review the AI draft; it may fix the current Mermaid issue."
+      : renderError && isActionableRenderError(renderError) && selectedLocalModel
+        ? "Preview issue detected. The AI coach can suggest a Mermaid fix."
+        : renderError && isActionableRenderError(renderError)
+          ? "Preview issue detected. Choose a local model and the AI coach can suggest a fix."
+          : hasAssistantDraft
+            ? "A fresh AI draft is ready. Review it in the preview, then apply it when you like."
+            : assistantRuntimeState.statusMessage;
+  const assistantNoteClassName = [
+    "assistant-inline-note",
+    assistantError ? "assistant-inline-note-error" : "",
+    !assistantError && renderError && isActionableRenderError(renderError) ? "assistant-inline-note-warning" : ""
+  ].filter(Boolean).join(" ");
+
+  const requestRenderFixSuggestion = useEffectEvent(async (errorMessage: string) => {
+    const requestKey = `${activeTab.id}\n${activeTab.source}\n${errorMessage}`;
+    if (renderFixRequestKeysRef.current.has(requestKey)) {
+      return;
+    }
+
+    renderFixRequestKeysRef.current.add(requestKey);
+    await sendAssistantPrompt(buildRenderFixPrompt(errorMessage), {
+      clearComposer: false,
+      openAssistant: true,
+      statusContext: "preview issue"
+    });
+  });
 
   useEffect(() => {
     tabsRef.current = tabs;
@@ -478,6 +524,42 @@ function App() {
       window.clearTimeout(timeoutId);
     };
   }, [activeTab.id, activeTab.theme, deferredSource]);
+
+  useEffect(() => {
+    if (
+      !isActionableRenderError(renderError)
+      || isRendering
+      || isAssistantBusy
+      || isLoadingLocalModels
+      || !selectedLocalModel
+      || hasAssistantDraft
+      || !activeTab.source.trim()
+    ) {
+      return;
+    }
+
+    const requestKey = `${activeTab.id}\n${activeTab.source}\n${renderError}`;
+    if (renderFixRequestKeysRef.current.has(requestKey)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void requestRenderFixSuggestion(renderError);
+    }, 900);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    activeTab.id,
+    activeTab.source,
+    hasAssistantDraft,
+    isAssistantBusy,
+    isLoadingLocalModels,
+    isRendering,
+    renderError,
+    selectedLocalModel
+  ]);
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -1034,9 +1116,16 @@ function App() {
     setStatusMessage("Applied the AI draft into the editor.");
   }
 
-  async function handleSendAssistantMessage(): Promise<void> {
-    const prompt = assistantInput.trim();
-    if (!prompt) {
+  async function sendAssistantPrompt(
+    prompt: string,
+    options: {
+      clearComposer: boolean;
+      openAssistant?: boolean;
+      statusContext?: string;
+    }
+  ): Promise<void> {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
       return;
     }
 
@@ -1046,37 +1135,48 @@ function App() {
       return;
     }
 
+    const requestTab = activeTab;
+    const requestDiagramType = detectDiagramType(requestTab.source);
+    const requestDiagramNodes = extractDiagramNodes(requestTab.source);
+    const requestSelectedNode = requestDiagramNodes.find((node) => node.id === requestTab.selectedNodeId);
+    const requestModel = selectedLocalModel;
     const nextHistory: AssistantChatMessage[] = [
-      ...activeTab.assistantMessages,
+      ...requestTab.assistantMessages,
       {
         role: "user",
-        content: prompt
+        content: trimmedPrompt
       }
     ];
 
-    updateTab(activeTab.id, (currentTab) => ({
+    updateTab(requestTab.id, (currentTab) => ({
       ...currentTab,
       assistantMessages: nextHistory
     }));
-    setAssistantInput("");
+    if (options.clearComposer) {
+      setAssistantInput("");
+    }
+    if (options.openAssistant) {
+      setIsAssistantOpen(true);
+    }
     setAssistantError("");
     setIsAssistantBusy(true);
 
     try {
       const response = await window.mermaidTool.generateAssistantReply({
         chatHistory: nextHistory,
-        diagramType,
-        model: selectedLocalModel.modelId,
-        runtimeId: selectedLocalModel.runtimeId,
-        selectedNode: selectedDiagramNode
-          ? `${selectedDiagramNode.label} (${selectedDiagramNode.kind})`
+        diagramType: requestDiagramType,
+        model: requestModel.modelId,
+        runtimeId: requestModel.runtimeId,
+        selectedNode: requestSelectedNode
+          ? `${requestSelectedNode.label} (${requestSelectedNode.kind})`
           : undefined,
-        source: activeTab.source
+        source: requestTab.source
       });
+      const updatedSource = normalizeMermaidSource(response.updatedSource);
 
-      updateTab(activeTab.id, (currentTab) => ({
+      updateTab(requestTab.id, (currentTab) => ({
         ...currentTab,
-        assistantDraftSource: response.updatedSource,
+        assistantDraftSource: updatedSource,
         assistantMessages: [
           ...nextHistory,
           {
@@ -1088,9 +1188,9 @@ function App() {
       }));
 
       setStatusMessage(
-        normalizeMermaidSource(response.updatedSource) !== normalizeMermaidSource(activeTab.source)
-          ? `AI drafted an updated ${diagramType.toLowerCase()} using ${response.model}.`
-          : `AI reviewed the current ${diagramType.toLowerCase()} and replied with guidance.`
+        updatedSource !== normalizeMermaidSource(requestTab.source)
+          ? `AI drafted an updated ${requestDiagramType.toLowerCase()} for the ${options.statusContext ?? "request"} using ${response.model}.`
+          : `AI reviewed the current ${requestDiagramType.toLowerCase()} and replied with guidance.`
       );
     } catch (error) {
       const message = formatErrorMessage(error);
@@ -1099,6 +1199,24 @@ function App() {
     } finally {
       setIsAssistantBusy(false);
     }
+  }
+
+  async function handleSendAssistantMessage(): Promise<void> {
+    await sendAssistantPrompt(assistantInput, {
+      clearComposer: true
+    });
+  }
+
+  async function handleSuggestRenderFix(): Promise<void> {
+    if (!isActionableRenderError(renderError)) {
+      return;
+    }
+
+    await sendAssistantPrompt(buildRenderFixPrompt(renderError), {
+      clearComposer: false,
+      openAssistant: true,
+      statusContext: "preview issue"
+    });
   }
 
   function handleAssistantComposerKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
@@ -1456,15 +1574,7 @@ function App() {
               </section>
 
               <section className="assistant-panel">
-                {assistantError ? (
-                  <p className="assistant-inline-note assistant-inline-note-error">{assistantError}</p>
-                ) : (
-                  <p className="assistant-inline-note">
-                    {hasAssistantDraft
-                      ? "A fresh AI draft is ready. Review it in the preview, then apply it when you like."
-                      : assistantRuntimeState.statusMessage}
-                  </p>
-                )}
+                <p className={assistantNoteClassName}>{assistantNote}</p>
 
                 <div className="assistant-transcript">
                   {activeTab.assistantMessages.length === 0 ? (
@@ -1506,6 +1616,18 @@ function App() {
                     onClick={() => void handleSendAssistantMessage()}
                   >
                     {isAssistantBusy ? "Drafting..." : "Send to AI"}
+                  </button>
+                  <button
+                    className="button button-quiet"
+                    disabled={
+                      !isActionableRenderError(renderError)
+                      || isAssistantBusy
+                      || isLoadingLocalModels
+                      || !selectedLocalModel
+                    }
+                    onClick={() => void handleSuggestRenderFix()}
+                  >
+                    Suggest Fix
                   </button>
                   <button
                     className="button button-quiet"
