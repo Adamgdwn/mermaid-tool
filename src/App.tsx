@@ -262,6 +262,7 @@ function App() {
   const hasAssistantDraft = normalizedAssistantDraft.length > 0
     && normalizedAssistantDraft !== normalizeMermaidSource(activeTab.source);
   const isWindowDirty = tabs.some((tab) => tab.dirty);
+  const isPreviewBlank = !activeTab.source.trim();
   const assistantNote = assistantError
     ? assistantError
     : renderError && isActionableRenderError(renderError) && hasAssistantDraft
@@ -472,7 +473,7 @@ function App() {
     if (!deferredSource.trim()) {
       setSvgMarkup("");
       setSvgSize(null);
-      setRenderError("Add Mermaid syntax on the left to see a live preview here.");
+      setRenderError("");
       setIsRendering(false);
       return;
     }
@@ -1361,6 +1362,17 @@ function App() {
   }, []);
 
   function renderPreviewBody(inFocusMode: boolean): ReactNode {
+    if (isPreviewBlank) {
+      return (
+        <div className="preview-empty">
+          <h3>Ready for a diagram</h3>
+          <p className="preview-empty-message">
+            Choose a starter diagram or type Mermaid text to begin.
+          </p>
+        </div>
+      );
+    }
+
     if (renderError) {
       return (
         <div className="preview-empty">
@@ -1568,7 +1580,7 @@ function App() {
                   <span className="panel-badge">
                     {detectedRuntimes.length > 0
                       ? `${detectedRuntimes.length} runtime${detectedRuntimes.length === 1 ? "" : "s"} found`
-                      : "Local models only"}
+                      : "No local AI"}
                   </span>
                 </div>
               </section>
@@ -1753,7 +1765,9 @@ function App() {
               <h2>{activeTab.documentName}</h2>
             </div>
             <div className="panel-badge">
-              {activeTab.dirty
+              {isPreviewBlank
+                ? "Blank draft"
+                : activeTab.dirty
                 ? (activeTab.draftSavedAt ? "Draft protected" : "Unsaved changes")
                 : "Saved state"}
             </div>
@@ -1823,7 +1837,7 @@ function App() {
                 className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}
                 title={renderError ? summarizeRenderError(renderError) : undefined}
               >
-                {renderError ? "Needs attention" : isRendering ? "Rendering" : "Live"}
+                {isPreviewBlank ? "Ready" : renderError ? "Needs attention" : isRendering ? "Rendering" : "Live"}
               </div>
             </div>
           </div>
@@ -1842,7 +1856,9 @@ function App() {
         <span>
           {activeTab.lastSavedAt
             ? `Saved at ${activeTab.lastSavedAt}`
-            : activeTab.dirty
+            : isPreviewBlank
+              ? "Blank draft"
+              : activeTab.dirty
               ? "Not saved yet"
               : "Saved state"}
         </span>
@@ -1883,7 +1899,7 @@ function App() {
                 className={`panel-badge ${renderError ? "panel-badge-danger" : ""}`}
                 title={renderError ? summarizeRenderError(renderError) : undefined}
               >
-                {renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}
+                {isPreviewBlank ? "Ready" : renderError ? "Needs attention" : isRendering ? "Rendering" : "Full screen live"}
               </div>
               <button className="button button-quiet" onClick={() => void closePreviewFullscreen()}>
                 Close
