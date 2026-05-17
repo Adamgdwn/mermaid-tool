@@ -726,6 +726,8 @@ select {
 .preview-empty {
   display: grid;
   place-items: center;
+  flex: 1;
+  min-height: 38rem;
   padding: 2rem;
   text-align: center;
   color: #5b646d;
@@ -734,6 +736,16 @@ select {
 .preview-empty h3 {
   margin-bottom: 0.55rem;
   color: #173955;
+}
+
+.preview-error-message {
+  width: min(100%, 46rem);
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.55;
 }
 
 .preview-focus-layer {
@@ -798,6 +810,11 @@ select {
   font-size: 0.92rem;
 }
 
+.statusbar-alert {
+  color: #a53c29;
+  font-weight: 700;
+}
+
 @media (max-width: 1280px) {
   .topbar {
     grid-template-columns: 1fr;
@@ -808,7 +825,8 @@ select {
   }
 
   .editor-shell,
-  .preview-canvas {
+  .preview-canvas,
+  .preview-empty {
     min-height: 28rem;
   }
 
