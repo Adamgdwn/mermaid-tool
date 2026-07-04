@@ -8,8 +8,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  type WheelEvent as ReactWheelEvent
+  type ReactNode
 } from "react";
 import type {
   AppStorageInfo,
@@ -60,11 +59,10 @@ const EMPTY_RUNTIME_STATE: AssistantRuntimeState = {
 };
 
 type PreviewPanSession = {
-  element: HTMLDivElement;
   originClientX: number;
   originClientY: number;
-  originScrollLeft: number;
-  originScrollTop: number;
+  originPanX: number;
+  originPanY: number;
 };
 
 type SvgSize = {
@@ -231,6 +229,8 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isPanningPreview, setIsPanningPreview] = useState(false);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
   const [svgSize, setSvgSize] = useState<SvgSize | null>(null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(true);
   const [assistantInput, setAssistantInput] = useState("");
@@ -249,6 +249,7 @@ function App() {
   const previewCanvasRef = useRef<HTMLDivElement | null>(null);
   const previewFocusCanvasRef = useRef<HTMLDivElement | null>(null);
   const renderFixRequestKeysRef = useRef<Set<string>>(new Set());
+  const autoFittedTabsRef = useRef<Set<string>>(new Set());
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? initialTabRef.current;
   const deferredSource = useDeferredValue(activeTab.source);
@@ -648,8 +649,8 @@ function App() {
 
       const deltaX = event.clientX - activeSession.originClientX;
       const deltaY = event.clientY - activeSession.originClientY;
-      activeSession.element.scrollLeft = activeSession.originScrollLeft - deltaX;
-      activeSession.element.scrollTop = activeSession.originScrollTop - deltaY;
+      setPanX(activeSession.originPanX + deltaX);
+      setPanY(activeSession.originPanY + deltaY);
     };
 
     const finishPanning = () => {
@@ -671,6 +672,28 @@ function App() {
       window.removeEventListener("blur", finishPanning);
     };
   }, []);
+
+  useEffect(() => {
+    if (!svgSize || isPreviewFullscreen || autoFittedTabsRef.current.has(activeTab.id)) {
+      return;
+    }
+
+    const canvas = previewCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    autoFittedTabsRef.current.add(activeTab.id);
+
+    window.requestAnimationFrame(() => {
+      const availableWidth = canvas.clientWidth;
+      const availableHeight = canvas.clientHeight;
+      const fittedZoom = clampZoom(availableWidth / svgSize.width);
+      setZoom(fittedZoom);
+      setPanX((availableWidth - svgSize.width * fittedZoom) / 2);
+      setPanY(Math.max(16, (availableHeight - svgSize.height * fittedZoom) / 2));
+    });
+  }, [activeTab.id, isPreviewFullscreen, svgSize]);
 
   useEffect(() => {
     if (!activeTab.dirty) {
@@ -697,15 +720,13 @@ function App() {
     }
 
     window.requestAnimationFrame(() => {
-      const computedStyle = window.getComputedStyle(activeCanvas);
-      const horizontalPadding = Number.parseFloat(computedStyle.paddingLeft)
-        + Number.parseFloat(computedStyle.paddingRight);
-      const availableWidth = Math.max(1, activeCanvas.clientWidth - horizontalPadding);
+      const availableWidth = activeCanvas.clientWidth;
+      const availableHeight = activeCanvas.clientHeight;
       const fittedZoom = clampZoom(availableWidth / svgSize.width);
 
       setZoom(fittedZoom);
-      activeCanvas.scrollLeft = 0;
-      activeCanvas.scrollTop = 0;
+      setPanX((availableWidth - svgSize.width * fittedZoom) / 2);
+      setPanY(Math.max(0, (availableHeight - svgSize.height * fittedZoom) / 2));
       setStatusMessage(
         `Opened presentation view in fit-width mode at ${Math.round(fittedZoom * 100)}%.`
       );
@@ -909,13 +930,8 @@ function App() {
       return;
     }
 
-    const computedStyle = window.getComputedStyle(canvas);
-    const horizontalPadding = Number.parseFloat(computedStyle.paddingLeft)
-      + Number.parseFloat(computedStyle.paddingRight);
-    const verticalPadding = Number.parseFloat(computedStyle.paddingTop)
-      + Number.parseFloat(computedStyle.paddingBottom);
-    const availableWidth = Math.max(1, canvas.clientWidth - horizontalPadding);
-    const availableHeight = Math.max(1, canvas.clientHeight - verticalPadding);
+    const availableWidth = canvas.clientWidth;
+    const availableHeight = canvas.clientHeight;
     const fittedZoom = clampZoom(
       strategy === "whole"
         ? Math.min(availableWidth / svgSize.width, availableHeight / svgSize.height)
@@ -923,10 +939,8 @@ function App() {
     );
 
     setZoom(fittedZoom);
-    window.requestAnimationFrame(() => {
-      canvas.scrollLeft = 0;
-      canvas.scrollTop = 0;
-    });
+    setPanX((availableWidth - svgSize.width * fittedZoom) / 2);
+    setPanY(Math.max(16, (availableHeight - svgSize.height * fittedZoom) / 2));
     setStatusMessage(
       mode === "fullscreen"
         ? strategy === "whole"
@@ -938,17 +952,17 @@ function App() {
     );
   }
 
-  function handlePreviewWheel(event: ReactWheelEvent<HTMLDivElement>): void {
+  const handleWheelEvent = useEffectEvent((event: WheelEvent) => {
     if (renderError || !svgSize) {
       return;
     }
 
     event.preventDefault();
 
-    const canvas = event.currentTarget;
+    const canvas = event.currentTarget as HTMLDivElement;
     const rect = canvas.getBoundingClientRect();
-    const cursorOffsetX = event.clientX - rect.left;
-    const cursorOffsetY = event.clientY - rect.top;
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
     const zoomFactor = event.deltaY < 0 ? 1.12 : 0.88;
     const nextZoom = clampZoom(zoom * zoomFactor);
 
@@ -956,18 +970,29 @@ function App() {
       return;
     }
 
-    const contentPointX = (canvas.scrollLeft + cursorOffsetX) / zoom;
-    const contentPointY = (canvas.scrollTop + cursorOffsetY) / zoom;
+    const contentX = (cursorX - panX) / zoom;
+    const contentY = (cursorY - panY) / zoom;
 
     setZoom(nextZoom);
-
-    window.requestAnimationFrame(() => {
-      canvas.scrollLeft = contentPointX * nextZoom - cursorOffsetX;
-      canvas.scrollTop = contentPointY * nextZoom - cursorOffsetY;
-    });
-
+    setPanX(cursorX - contentX * nextZoom);
+    setPanY(cursorY - contentY * nextZoom);
     setStatusMessage(`Preview zoom set to ${Math.round(nextZoom * 100)}%.`);
-  }
+  });
+
+  useEffect(() => {
+    const canvas = isPreviewFullscreen
+      ? previewFocusCanvasRef.current
+      : previewCanvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    canvas.addEventListener("wheel", handleWheelEvent, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheelEvent);
+    };
+  }, [isPreviewFullscreen]);
 
   function handlePreviewMouseDown(event: ReactMouseEvent<HTMLDivElement>): void {
     if (event.button !== 2) {
@@ -976,11 +1001,10 @@ function App() {
 
     event.preventDefault();
     previewPanSessionRef.current = {
-      element: event.currentTarget,
       originClientX: event.clientX,
       originClientY: event.clientY,
-      originScrollLeft: event.currentTarget.scrollLeft,
-      originScrollTop: event.currentTarget.scrollTop
+      originPanX: panX,
+      originPanY: panY
     };
     setIsPanningPreview(true);
     setStatusMessage("Right-drag the canvas to pan around the diagram.");
@@ -1438,23 +1462,18 @@ function App() {
         ].filter(Boolean).join(" ")}
         onContextMenu={handlePreviewContextMenu}
         onMouseDown={handlePreviewMouseDown}
-        onWheel={handlePreviewWheel}
         ref={inFocusMode ? previewFocusCanvasRef : previewCanvasRef}
       >
-        <div className="preview-stage-frame">
-          <div
-            className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}
-            style={
-              svgSize
-                ? {
-                    height: `${svgSize.height * zoom}px`,
-                    width: `${svgSize.width * zoom}px`
-                  }
-                : undefined
-            }
-            dangerouslySetInnerHTML={{ __html: svgMarkup }}
-          />
-        </div>
+        <div
+          className={`preview-stage ${inFocusMode ? "preview-stage-focus" : ""}`}
+          style={{
+            transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+            width: svgSize ? `${svgSize.width}px` : undefined,
+            height: svgSize ? `${svgSize.height}px` : undefined
+          }}
+          dangerouslySetInnerHTML={{ __html: svgMarkup }}
+        />
       </div>
     );
   }
