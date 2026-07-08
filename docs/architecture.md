@@ -2,14 +2,14 @@
 
 ## Summary
 
- Mermaid Tool is a local-first Electron desktop application. The main process handles file dialogs, save and export writes, draft persistence, multi-window lifecycle, launch-time file opening, and the local-model bridge for AI-assisted diagram drafting. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
+ Mermaid Tool is a Guided AI Labs local-first Electron desktop application. The main process handles file dialogs, save and export writes, draft persistence, multi-window lifecycle, launch-time file opening, and the local-model bridge for AI-assisted diagram drafting. The renderer provides a polished editing interface built with React, Monaco Editor, and the official Mermaid rendering engine.
 
 ## Components
 
 - `electron/main.ts`: creates desktop windows, exposes file open/save/delete/export handlers, routes launch-time file opening into the right window, stores per-tab drafts in Electron user data, and brokers dirty-window close confirmation.
 - `electron/preload.ts`: safely bridges IPC methods into the renderer through `window.mermaidTool`, including local runtime discovery and assistant chat requests.
 - `electron/local-models.ts`: probes supported local AI runtimes, lists models, and routes assistant chat requests to the chosen runtime.
-- `src/App.tsx`: application shell, tab workspace, fixed-width sidebar, top-collapsing AI dialogue shell, starter diagram chooser, node selector, multi-document editing workflow, preview, true SVG scaling, fit-width and whole-view controls, wheel zoom, right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
+- `src/App.tsx`: application shell, Guided AI Labs-branded chrome, tab workspace, fixed-width sidebar, top-collapsing AI dialogue shell, starter diagram chooser, node selector, multi-document editing workflow, preview, true SVG scaling, fit-width and whole-view controls, wheel zoom, right-drag preview panning, fullscreen presentation mode, template loading, zoom, and export actions.
 - `src/lib/assistant.ts`: extracts node-like elements from Mermaid text, normalizes AI drafts, and provides assistant copy used by the renderer.
 - `src/lib/document.ts`: document naming, diagram detection, and export filename helpers.
 - `src/lib/export.ts`: SVG-to-PNG conversion using `canvg`.

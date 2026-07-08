@@ -2,7 +2,7 @@
   "name": "mermaid-tool",
   "productName": "Mermaid Tool",
   "version": "0.2.1",
-  "description": "A local desktop Mermaid diagram editor with live preview and export tools.",
+  "description": "A Guided AI Labs local desktop Mermaid diagram editor with live preview and export tools.",
   "main": "dist/electron/main.js",
   "author": {
     "name": "Adam Goodwin",
@@ -90,7 +90,7 @@
       "category": "Graphics",
       "desktop": {
         "entry": {
-          "Comment": "Local Mermaid diagram editor with live preview and export",
+          "Comment": "Guided AI Labs local Mermaid diagram editor with live preview and export",
           "MimeType": "text/x-mermaid;application/x-mermaid;text/plain;",
           "StartupWMClass": "Mermaid Tool"
         }

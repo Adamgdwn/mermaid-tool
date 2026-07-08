@@ -2,7 +2,7 @@
 
 ## What This Project Is
 
-Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to feel approachable for someone who just wants to open a file, edit the diagram text, and export a good-looking visual without learning a bigger design toolchain.
+Mermaid Tool is a Guided AI Labs local desktop editor for Mermaid diagram files. It is meant to feel approachable for someone who just wants to open a file, edit the diagram text, and export a good-looking visual without learning a bigger design toolchain.
 
 ## How To Work In This Repo
 
@@ -31,6 +31,7 @@ Mermaid Tool is a local desktop editor for Mermaid diagram files. It is meant to
 - The left rail now includes a collapsible AI builder at the top of the sidebar.
 - The sidebar keeps the same width whether the dialogue is open or closed, and the starter diagram chooser stays visible below it.
 - The main toolbar is grouped by intent: start a diagram, keep work, share a visual, or use less-common maintenance actions.
+- The app chrome uses the Guided AI Labs signal-spark brand treatment while preserving the existing Mermaid Tool app icon.
 - The AI builder uses local models only for now. It auto-detects Ollama, LM Studio, and other OpenAI-compatible local servers before the user has to think about endpoints.
 - If no local model is available, the assistant area explains that AI is optional and shows setup guidance without blocking manual editing.
 - Ollama still defaults to `http://127.0.0.1:11434`, while OpenAI-compatible local servers are checked on common local addresses such as LM Studio on `http://127.0.0.1:1234/v1` and `llama.cpp` on `http://127.0.0.1:8080/v1`.

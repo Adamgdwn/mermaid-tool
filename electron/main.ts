@@ -325,7 +325,7 @@ async function createWindow(initialDocuments: DocumentPayload[] = []): Promise<B
     height: 980,
     minWidth: 1160,
     minHeight: 760,
-    backgroundColor: "#f5ede2",
+    backgroundColor: "#f7fafc",
     title: APP_NAME,
     webPreferences: {
       contextIsolation: true,

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Mermaid Tool is a local desktop Mermaid editor for people who want a simple, polished way to open `.mmd` files, edit diagrams, preview them live, and export clean SVG or PNG assets without relying on a hosted web editor.
+Mermaid Tool is a Guided AI Labs local desktop Mermaid editor for people who want a simple, polished way to open `.mmd` files, edit diagrams, preview them live, and export clean SVG or PNG assets without relying on a hosted web editor.
 
 It is built for amateur-friendly local use:
 
@@ -31,6 +31,7 @@ It is built for amateur-friendly local use:
 ## Status
 
 - Owner: Adam Goodwin
+- Brand: Guided AI Labs
 - Technical lead: codex session
 - Risk tier: Medium
 - Production status: Local desktop app ready for install and use

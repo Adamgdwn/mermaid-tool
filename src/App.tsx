@@ -10,6 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode
 } from "react";
+import guidedAiLabsLogoUrl from "../assets/guided-ai-labs-signal-spark.svg";
 import type {
   AppStorageInfo,
   AssistantChatMessage,
@@ -1480,15 +1481,13 @@ function App() {
 
   return (
     <div className="shell">
-      <div className="aurora aurora-left" />
-      <div className="aurora aurora-right" />
-
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">M</div>
-          <div>
-            <p className="eyebrow">Local Desktop Mermaid Studio</p>
+          <div className="brand-copy">
+            <p className="eyebrow">Guided AI Labs Studio</p>
             <h1>Mermaid Tool</h1>
+            <p className="brand-subtitle">Local diagram workspace</p>
           </div>
         </div>
 
@@ -1569,6 +1568,10 @@ function App() {
         </div>
 
         <div className="toolbar toolbar-right">
+          <div className="guided-labs-lockup">
+            <img src={guidedAiLabsLogoUrl} alt="Guided AI Labs" />
+          </div>
+
           <label className="field">
             Theme
             <select

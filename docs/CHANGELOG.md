@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- refreshed the app chrome with the Guided AI Labs signal-spark brand treatment while keeping the existing Mermaid Tool icon unchanged
 - changed blank new tabs to show a calm ready state instead of a preview error
 - clarified the assistant availability badge when no local AI runtime is detected
 - grouped the main toolbar into start, keep, share, and more actions for easier scanning
