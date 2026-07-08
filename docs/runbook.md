@@ -14,6 +14,8 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 - AI builder cannot find models: confirm at least one supported local runtime is running, then refresh the model list in the left rail.
 - Ollama checks `http://127.0.0.1:11434/api/tags` by default, LM Studio checks its OpenAI-compatible local server, and `llama.cpp` or similar servers are expected to expose `/v1/models`.
 - AI dialogue layout feels wrong: confirm the repo build is the version being launched, then verify the dialogue collapses upward at the top of the left sidebar while starter diagram cards remain visible underneath.
+- Guided AI Labs branding looks stale or missing: rerun `npm run build`, confirm `assets/guided-ai-labs-signal-spark.svg` is present, and confirm the launched app is using the rebuilt `dist/` output.
+- Mermaid Tool icon looks wrong: confirm `assets/mermaid-tool-icon.svg` and `scripts/generate-icons.py` were not changed, then regenerate package icons only if packaging output is stale.
 - Export fails: confirm the preview is healthy first, then retry SVG or PNG export.
 - File open or save fails: confirm the target path is writable and the file still exists.
 - Unsaved work is confusing: confirm the editor location panel says "File not chosen yet"; recovery drafts live in hidden app data, while user-created saves default to `Documents/Mermaid Tool`.
@@ -37,7 +39,8 @@ Operate and recover the local Mermaid Tool desktop application on a workstation.
 4. Run `npm run package:linux` if the issue is specific to AppImage or Debian delivery.
 5. Remove `dist/` and `release/` and rebuild if launch or package assets look stale.
 6. Reinstall the launcher with `npm run install:desktop`.
-7. Remove abandoned draft `.json` files from `~/.config/Mermaid Tool/drafts/` if the app keeps restoring work you no longer want.
+7. Confirm the Guided AI Labs lockup appears in the header and the Mermaid Tool app icon still uses the existing icon artwork.
+8. Remove abandoned draft `.json` files from `~/.config/Mermaid Tool/drafts/` if the app keeps restoring work you no longer want.
 
 ## Escalation
 

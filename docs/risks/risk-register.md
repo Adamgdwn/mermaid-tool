@@ -4,7 +4,7 @@
 
 - Tier: Medium
 - Owner: Adam Goodwin
-- Last reviewed: 2026-04-19
+- Last reviewed: 2026-07-07
 
 ## Key Risks
 
@@ -15,3 +15,4 @@
 | R-003 | Desktop launcher behavior may drift if the repo is moved after installation because the launcher stores an absolute path. | Medium | Low | Reinstall the desktop entry after moving the repo, document the recovery step in the runbook and deployment guide. | Adam Goodwin | Open |
 | R-004 | Packaged Linux behavior may vary across distributions because Electron desktop integration depends on system MIME and desktop database tools. | Medium | Medium | AppImage and `.deb` both built and inspected, local launcher retained as fallback, packaging docs updated with recovery steps. | Adam Goodwin | Mitigated |
 | R-005 | Local AI runtime availability or protocol differences across Ollama, LM Studio, and OpenAI-compatible servers may confuse users or produce inconsistent assistant behavior. | Medium | Medium | Runtime auto-detection, in-app status messaging, node-aware prompting, runbook guidance, and local-only fallback to manual editing when no runtime is available. | Adam Goodwin | Mitigated |
+| R-006 | Brand assets may drift if future visual updates recolor, redraw, or replace the Guided AI Labs signal-spark treatment or Mermaid Tool app icon unintentionally. | Low | Low | Keep the approved signal-spark SVG as a separate asset, preserve the existing Mermaid Tool icon files unless explicitly requested, and include branding checks in deployment and recovery docs. | Adam Goodwin | Mitigated |

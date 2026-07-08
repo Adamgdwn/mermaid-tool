@@ -38,6 +38,7 @@ This project is a local desktop app, so deployment means preparing a machine to 
 ## Validation
 
 - confirm the app launches without renderer errors
+- confirm the Guided AI Labs signal-spark lockup appears in the app chrome while the Mermaid Tool app icon remains unchanged
 - open one or more sample `.mmd` files
 - change the text and verify the preview refreshes
 - save the file and confirm disk changes
@@ -54,6 +55,7 @@ This project is a local desktop app, so deployment means preparing a machine to 
 - confirm the desktop launcher opens the app from the menu
 - confirm only one Mermaid Tool launcher is shown when the local desktop entry overrides the packaged app
 - confirm `.mmd` and `.mermaid` open in Mermaid Tool after installation
+- confirm packaged metadata still uses the Mermaid Tool product name with the Guided AI Labs desktop comment
 - confirm dirty tabs recover after relaunch
 - confirm the AI builder can discover at least one supported local runtime when one is running
 - confirm the AI dialogue collapses upward while starter diagram cards remain visible in the sidebar
