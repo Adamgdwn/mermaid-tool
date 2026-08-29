@@ -1,5 +1,16 @@
 # Mermaid Tool
 
+## Screenshots
+
+**Editor with local AI builder**
+![Editor with AI assistant sidebar open, showing Monaco editor and Guided AI Labs branding](docs/screenshots/editor.png)
+
+**Live preview — rendered flowchart**
+![Rendered Mermaid flowchart showing a multi-node journey diagram](docs/screenshots/diagram.png)
+
+**Kanban diagram (Mermaid v11)**
+![Kanban diagram with Backlog, In Progress, and Done columns](docs/screenshots/kanban.png)
+
 ## Purpose
 
 Mermaid Tool is a Guided AI Labs local desktop Mermaid editor for people who want a simple, polished way to open `.mmd` files, edit diagrams, preview them live, and export clean SVG or PNG assets without relying on a hosted web editor.

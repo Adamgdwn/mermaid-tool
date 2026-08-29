@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- resolved all 47 npm dependency vulnerabilities (1 critical, 37 high, 9 moderate) by running `npm audit fix`; electron updated to 41.10.7 and all transitive build-tool advisories cleared
+- added three screenshots to the README so visitors can immediately see the editor, live preview, and Kanban v11 diagram support
 - extended diagram type detection to cover all Mermaid v11 diagram types: XY Chart, Packet, Architecture, Treemap, Tree View, Kanban, Venn, Ishikawa, ZenUML, and C4 diagrams
 - added YAML frontmatter skipping so `---` config blocks no longer confuse diagram type detection
 - added node extraction for Timeline diagrams (sections and periods) so the AI assistant node picker works for those diagrams
