@@ -176,6 +176,66 @@ function extractMindmapNodes(source: string): DiagramNode[] {
   return dedupeNodes(nodes);
 }
 
+function extractTimelineNodes(source: string): DiagramNode[] {
+  const nodes: DiagramNode[] = [];
+
+  for (const line of source.split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("%%") || /^timeline\b/i.test(trimmedLine) || /^title\b/i.test(trimmedLine)) {
+      continue;
+    }
+
+    const sectionMatch = trimmedLine.match(/^section\s+(.+)$/i);
+    if (sectionMatch) {
+      const label = cleanNodeLabel(sectionMatch[1] ?? "");
+      if (label) {
+        nodes.push({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), kind: "section", label });
+      }
+      continue;
+    }
+
+    const periodMatch = trimmedLine.match(/^([^:]+?)\s*:\s*(.+)$/);
+    if (periodMatch) {
+      const label = cleanNodeLabel(periodMatch[1] ?? "");
+      if (label) {
+        nodes.push({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), kind: "period", label });
+      }
+    }
+  }
+
+  return dedupeNodes(nodes);
+}
+
+function extractKanbanNodes(source: string): DiagramNode[] {
+  const nodes: DiagramNode[] = [];
+
+  for (const line of source.split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("%%") || /^kanban\b/i.test(trimmedLine)) {
+      continue;
+    }
+
+    const columnMatch = trimmedLine.match(/^([A-Za-z][\w-]*)\s*(?:\[(.+?)\])?$/);
+    if (columnMatch && !trimmedLine.includes("@{")) {
+      const label = cleanNodeLabel(columnMatch[2] ?? columnMatch[1] ?? "");
+      if (label) {
+        nodes.push({ id: columnMatch[1] ?? label, kind: "column", label });
+      }
+      continue;
+    }
+
+    const taskMatch = trimmedLine.match(/^([A-Za-z][\w-]*)\s*\[([^\]]+)\]/);
+    if (taskMatch) {
+      const label = cleanNodeLabel(taskMatch[2] ?? "");
+      if (label) {
+        nodes.push({ id: taskMatch[1] ?? label, kind: "task", label });
+      }
+    }
+  }
+
+  return dedupeNodes(nodes);
+}
+
 export function extractDiagramNodes(source: string): DiagramNode[] {
   const diagramType = detectDiagramType(source);
 
@@ -188,6 +248,10 @@ export function extractDiagramNodes(source: string): DiagramNode[] {
       return extractGanttNodes(source);
     case "Mindmap":
       return extractMindmapNodes(source);
+    case "Timeline":
+      return extractTimelineNodes(source);
+    case "Kanban":
+      return extractKanbanNodes(source);
     default:
       return extractFlowNodes(source);
   }

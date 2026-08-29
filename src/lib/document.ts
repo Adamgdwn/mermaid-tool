@@ -44,12 +44,30 @@ export function detectDiagramType(source: string): string {
     [/^requirementDiagram\b/i, "Requirement"],
     [/^gitGraph\b/i, "Git Graph"],
     [/^sankey-beta\b/i, "Sankey"],
-    [/^block-beta\b/i, "Block"]
+    [/^xychart-beta\b/i, "XY Chart"],
+    [/^block-beta\b/i, "Block"],
+    [/^packet-beta\b/i, "Packet"],
+    [/^architecture-beta\b/i, "Architecture"],
+    [/^treemap-beta\b/i, "Treemap"],
+    [/^treeView-beta\b/i, "Tree View"],
+    [/^kanban\b/i, "Kanban"],
+    [/^venn\b/i, "Venn"],
+    [/^ishikawa\b/i, "Ishikawa"],
+    [/^zenuml\b/i, "ZenUML"],
+    [/^C4(Context|Container|Component|Dynamic|Deployment)\b/, "C4 Diagram"]
   ];
+
+  let inFrontmatter = false;
 
   for (const rawLine of source.split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || line.startsWith("%%")) {
+
+    if (line === "---") {
+      inFrontmatter = !inFrontmatter;
+      continue;
+    }
+
+    if (inFrontmatter || !line || line.startsWith("%%")) {
       continue;
     }
 

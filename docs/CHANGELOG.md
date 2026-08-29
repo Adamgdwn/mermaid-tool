@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- extended diagram type detection to cover all Mermaid v11 diagram types: XY Chart, Packet, Architecture, Treemap, Tree View, Kanban, Venn, Ishikawa, ZenUML, and C4 diagrams
+- added YAML frontmatter skipping so `---` config blocks no longer confuse diagram type detection
+- added node extraction for Timeline diagrams (sections and periods) so the AI assistant node picker works for those diagrams
+- added node extraction for Kanban diagrams (columns and tasks) so the AI assistant node picker works for those diagrams
 - refreshed the app chrome with the Guided AI Labs signal-spark brand treatment while keeping the existing Mermaid Tool icon unchanged
 - changed blank new tabs to show a calm ready state instead of a preview error
 - clarified the assistant availability badge when no local AI runtime is detected
